@@ -54,3 +54,31 @@ models, is a *slow information loss*, not a burst of new content. The next exper
 whether information *decay* (the sign of the source term, and the trend of density over time)
 tracks human glitch judgments better than |s|, and evaluates it **within generator** to avoid
 the generator confound.
+
+## R1c. Which information features track human glitch judgments, *within* a generator?
+
+**Question.** If older generators' glitches are a slow information *loss* (blur, smear), do
+decay-type features (density trend, signed source, share of destruction) beat PVS?
+
+**Run.** 10 features per clip (`experiments/r1c_features.py`). Pooled pairwise accuracy, with
+the direction fitted on the strong pairs, plus within-generator Spearman against each clip's
+human coherence share (7 generators with at least 6 clips).
+
+| Feature | Pooled accuracy | Within-generator mean rho |
+| --- | --- | --- |
+| PVS (higher = less glitchy) | 0.86 | +0.10 (6 of 7 positive) |
+| motion (lower = less glitchy) | 0.78 | +0.03 |
+| warp error (lower) | 0.75 | -0.10 |
+| jitter (temporal 2nd/1st difference, lower) | 0.69 | -0.02 |
+| signed source (lower) | 0.66 | -0.07 |
+| density trend, sharpness, density, arrow-of-time, destruction share | 0.54-0.59 | -0.16 to +0.03 |
+
+**Observation.** Pooled accuracies reflect generator identity (the generator prior alone is
+0.97). Within generators every correlation is |rho| <= 0.16, which is indistinguishable from
+zero with 6-19 clips each. PVS is the only feature with a consistent sign across generators
+(6 of 7), but the effect is tiny. Decay features do not help.
+
+**Decision.** This data cannot validate any per-clip glitch detector. Doing so needs
+same-generator pairs (several samples per prompt per model) with glitch votes, or human
+labels on our own clips. Both need downloads or people, so neither is possible overnight.
+Park detection; switch to the speed direction (R3), which can be tested offline.

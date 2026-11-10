@@ -12,16 +12,18 @@ from experiments.tiny_data import make_dataset
 torch.manual_seed(0)
 budget = float(sys.argv[1]) * 60 if len(sys.argv) > 1 else 540
 total = int(sys.argv[2]) if len(sys.argv) > 2 else 6000
-ck = "results/tiny_ckpt.pt"
+ck = os.environ.get("CKPT", "results/tiny_ckpt.pt")
 data_path = "results/tiny_data.npz"
 
 if not os.path.exists(data_path):
     np.savez_compressed(data_path, x=make_dataset(12000, seed=0))
 X = torch.from_numpy(np.load(data_path)["x"])
 
-model = TinyVideoDiT()
+import os as _os
+CFG = dict(P=int(_os.environ.get("P", 4)), d=int(_os.environ.get("D", 96)))
+model = TinyVideoDiT(**CFG)
 opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.0)
-ema = TinyVideoDiT(); ema.load_state_dict(model.state_dict())
+ema = TinyVideoDiT(**CFG); ema.load_state_dict(model.state_dict())
 step, log = 0, []
 if os.path.exists(ck):
     s = torch.load(ck, weights_only=False)  # our own checkpoint
@@ -44,8 +46,10 @@ while step < total and time.time() - t0 < budget:
         for pe, pm in zip(ema.parameters(), model.parameters()):
             pe.mul_(0.999).add_(pm, alpha=0.001)
     step += 1
+    if step % 1000 == 0:
+        torch.save(dict(model=model.state_dict(), ema=ema.state_dict(), opt=opt.state_dict(), step=step, log=log, cfg=CFG), ck)
     if step % 100 == 0:
         log.append((step, float(loss)))
         print(step, round(float(loss), 4), f"{(time.time() - t0) / 60:.1f}min", flush=True)
-torch.save(dict(model=model.state_dict(), ema=ema.state_dict(), opt=opt.state_dict(), step=step, log=log), ck)
+torch.save(dict(model=model.state_dict(), ema=ema.state_dict(), opt=opt.state_dict(), step=step, log=log, cfg=CFG), ck)
 print("saved at step", step)

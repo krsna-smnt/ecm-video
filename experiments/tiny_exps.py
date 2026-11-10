@@ -33,9 +33,9 @@ N_STEPS = 20
 
 
 def load():
-    m = TinyVideoDiT()
     import os
     s = torch.load(os.environ.get("CKPT", "results/tiny_ckpt.pt"), weights_only=False)  # our own file
+    m = TinyVideoDiT(**s.get("cfg", {}))
     m.load_state_dict(s["ema"]); m.eval()
     return m
 

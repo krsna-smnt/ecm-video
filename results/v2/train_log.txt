@@ -1,0 +1,39 @@
+/home/claude/ecm-video/experiments/train_tiny.py:48: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+  log.append((step, float(loss)))
+100 0.3651 1.2min
+200 0.1588 2.5min
+300 0.1329 3.9min
+400 0.1345 5.2min
+500 0.124 6.6min
+600 0.1322 8.0min
+700 0.0954 9.5min
+800 0.121 11.0min
+900 0.1378 12.4min
+1000 0.0948 13.7min
+1100 0.1089 17.7min
+1200 0.0992 20.6min
+1300 0.0998 25.3min
+1400 0.0985 30.7min
+1500 0.0839 32.2min
+1600 0.0804 33.6min
+1700 0.0766 35.0min
+1800 0.0889 36.4min
+1900 0.0818 38.1min
+2000 0.0876 40.0min
+2100 0.0753 41.9min
+2200 0.1361 43.9min
+2300 0.0763 46.0min
+2400 0.0711 48.2min
+2500 0.0786 50.4min
+2600 0.0686 52.6min
+2700 0.0566 54.7min
+2800 0.0738 56.9min
+2900 0.0604 59.1min
+3000 0.0564 61.2min
+3100 0.0546 63.3min
+3200 0.0808 65.4min
+3300 0.0539 67.6min
+3400 0.0551 69.7min
+3500 0.0583 71.8min
+saved at step 3500

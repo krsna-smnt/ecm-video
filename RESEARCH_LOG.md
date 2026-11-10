@@ -157,3 +157,40 @@ accuracy of a small 3D-conv real-vs-generated classifier (0.5 = indistinguishabl
 4. 10 steps + averaged sharing is good on both metrics (FD equal to 20-step normal; C2ST 0.79-0.84,
    better than 20-step normal), at 3.8-5.2x fewer FLOPs. Still not trusted until the
    better-trained model reproduces it.
+
+## Toy-world physics checker, and R3f rerun with it (12k model)
+
+**Why.** FD-rand and C2ST disagreed, and both mostly measure the weak model's appearance
+artifacts. The toy world has known laws (static background; rigid sprites with constant size,
+texture and velocity), so violations can be measured directly (`experiments/toy_physics.py`):
+background flicker, object-area drift (melting or vanishing), velocity jerk, appearance drift,
+and the share of clips whose object is tracked in every frame. Real clips are not exactly zero
+(overlapping or low-contrast sprites, edge entries), so the checker is read relative to real.
+
+| Method | Speedup | Flicker | Area drift | Velocity jerk (px) | Valid | FD | C2ST |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| real | - | 0.002 | 0.55 | 0.70 | 0.66 | - | - |
+| normal 20 | 1x | 0.012 | 0.97 | 3.01 | 0.19 | 0.000062 | 0.94 |
+| normal 10 | 2x | 0.012 | 1.14 | 2.80 | 0.10 | 0.00019 | 0.82 |
+| normal 5 | 4x | 0.012 | 1.49 | 2.48 | 0.03 | 0.00043 | 0.81 |
+| shared noise 20 | 2.4x | 0.006 | **0.75** | 2.80 | **0.44** | 0.00153 | 0.99 |
+| averaged sharing 20, thr 0.03 | 2.4x | 0.006 | 1.05 | 2.63 | 0.18 | 0.00036 | 0.89 |
+| averaged sharing 20, thr 0.06 | 3.5x | 0.002 | 1.39 | 1.87 | 0.07 | 0.00023 | 0.89 |
+| **averaged sharing 10, thr 0.03** | **3.8x** | 0.006 | **1.21** | 2.59 | **0.09** | **0.000053** | 0.84 |
+| averaged sharing 10, thr 0.06 | 5.2x | 0.002 | 1.52 | 1.88 | 0.04 | 0.000045 | 0.79 |
+
+**Observations.**
+1. The physics checker is monotone in sampling steps (valid 0.19, 0.10, 0.07, 0.05, 0.03 from
+   20 down to 5 steps), so it behaves like a quality measure, unlike C2ST.
+2. **Shared noise is the most physically consistent method** (flicker halved, area drift lowest,
+   objects tracked 2.3x more often) while being the worst on appearance (FD, C2ST).
+   "Does shared noise hurt quality?" has a split answer: it helps physics and hurts appearance
+   (saturated, high-contrast blocks).
+3. At **matched speed (about 4x)**, 10 steps + averaged sharing beats 5-step sampling on physics
+   (valid 0.09 vs 0.03, area drift 1.21 vs 1.49) and FD (8x lower), and is about level on C2ST.
+   This is the first consistent sign of a real speed-quality gain from the framework.
+4. Sharing too much (thr 0.06) freezes regions that objects later move into: lower flicker,
+   but worse area drift and validity. The static-map threshold trades flicker against object
+   permanence.
+
+**Next.** Confirm or refute observation 3 on the 42k-step model.

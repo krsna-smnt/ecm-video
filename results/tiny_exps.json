@@ -1,0 +1,240 @@
+{
+ "n_clips": 2,
+ "steps": 20,
+ "full_gflops": 17.17567488,
+ "B1": {
+  "frac_settled_by_25pct": 1.0,
+  "frac_settled_by_50pct": 1.0,
+  "median_settle_static": NaN,
+  "median_settle_moving": 0.0,
+  "frac_static_tokens": 0.0,
+  "spearman_settle_vs_density": NaN,
+  "spearman_settle_vs_activity": NaN,
+  "few_step_settle_hist": [
+   1024,
+   0,
+   0,
+   0,
+   0
+  ]
+ },
+ "ref_pvs": 0.0011456224892754108,
+ "B2": [
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 1.6,
+   "pvs": 0.0011456224892754108,
+   "keep_frac": 0.5,
+   "kind": "density"
+  },
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 1.6,
+   "pvs": 0.0011456224892754108,
+   "keep_frac": 0.5,
+   "kind": "random"
+  },
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 2.2857142857142856,
+   "pvs": 0.0011456224892754108,
+   "keep_frac": 0.25,
+   "kind": "density"
+  },
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 2.2857142857142856,
+   "pvs": 0.0011456224892754108,
+   "keep_frac": 0.25,
+   "kind": "random"
+  },
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 3.079699248120301,
+   "pvs": 0.0011456224892754108,
+   "keep_frac": 0.1,
+   "kind": "density"
+  },
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 3.079699248120301,
+   "pvs": 0.0011456224892754108,
+   "keep_frac": 0.1,
+   "kind": "random"
+  },
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 2.2857142857142856,
+   "pvs": 0.0011456224892754108,
+   "keep_frac": 0.25,
+   "kind": "density+motion"
+  },
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 3.079699248120301,
+   "pvs": 0.0011456224892754108,
+   "keep_frac": 0.1,
+   "kind": "density+motion"
+  }
+ ],
+ "B3": [
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 1.0,
+   "pvs": 0.0011456224892754108,
+   "group": 2,
+   "static_thr": 0.03,
+   "static_frac": 0.0
+  },
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 1.0,
+   "pvs": 0.0011456224892754108,
+   "group": 2,
+   "static_thr": 0.06,
+   "static_frac": 0.0
+  },
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 1.0,
+   "pvs": 0.0011456224892754108,
+   "group": 4,
+   "static_thr": 0.03,
+   "static_frac": 0.0
+  },
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 1.0,
+   "pvs": 0.0011456224892754108,
+   "group": 4,
+   "static_thr": 0.06,
+   "static_frac": 0.0
+  },
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 1.0,
+   "pvs": 0.0011456224892754108,
+   "group": 8,
+   "static_thr": 0.03,
+   "static_frac": 0.0
+  },
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 1.0,
+   "pvs": 0.0011456224892754108,
+   "group": 8,
+   "static_thr": 0.06,
+   "static_frac": 0.0
+  }
+ ],
+ "B3+B2": [
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 1.6,
+   "pvs": 0.0011456224892754108,
+   "keep_frac_of_remaining": 0.5
+  },
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 2.109165808444902,
+   "pvs": 0.0011456224892754108,
+   "keep_frac_of_remaining": 0.3
+  }
+ ],
+ "B4": [
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 10.0,
+   "pvs": 0.0011456224892754108,
+   "rule": "delta",
+   "tau": 0.01
+  },
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 10.0,
+   "pvs": 0.0011456224892754108,
+   "rule": "delta",
+   "tau": 0.02
+  },
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 10.0,
+   "pvs": 0.0011456224892754108,
+   "rule": "delta",
+   "tau": 0.04
+  },
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 10.0,
+   "pvs": 0.0011456224892754108,
+   "rule": "delta",
+   "tau": 0.08
+  },
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 10.0,
+   "pvs": 0.0011456224892754108,
+   "rule": "heat",
+   "tau": 0.005
+  },
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 10.0,
+   "pvs": 0.0011456224892754108,
+   "rule": "heat",
+   "tau": 0.01
+  },
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 10.0,
+   "pvs": 0.0011456224892754108,
+   "rule": "heat",
+   "tau": 0.02
+  },
+  {
+   "psnr": 99.0,
+   "psnr_min": 99.0,
+   "speedup": 10.0,
+   "pvs": 0.0011456224892754108,
+   "rule": "heat",
+   "tau": 0.04
+  }
+ ],
+ "H_conduction": {
+  "mean_static_to_moving": NaN,
+  "mean_uniform_expectation": NaN,
+  "by_layer": [
+   NaN,
+   NaN,
+   NaN,
+   NaN
+  ]
+ },
+ "H_cut": {
+  "psnr": 99.0,
+  "pvs": 0.0011456224892754108
+ }
+}

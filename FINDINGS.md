@@ -93,3 +93,20 @@ projected at real scale on static-camera content, nearly lossless relative to sa
 compute. Stacked with step distillation (about 10x, existing work), that is the path to the 10x+
 goal. Whether shared-noise samples look as good as unshared ones is unresolved, and it is the
 first thing to test on a GPU (see `GPU_PLAN.md`). Nothing else here showed a large speedup.
+
+## 4. First real clips (scikit-video samples, none AI-generated)
+
+`python -m ecm.score` (prefilter 2, first 64 frames, 256 px). Figure: `results/fig_real_samples.png`.
+
+| Clip | Content | PVS peak | PVS mean |
+| --- | --- | --- | --- |
+| carphone_pristine | real, talking head | 0.46 | 0.19 |
+| bigbuckbunny | CGI animation, large deforming character | 0.89 | 0.38 |
+| bikes | real, fast motion | 0.92 | 0.34 |
+| carphone_distorted | same as pristine, heavily compressed | 1.05 | 0.22 |
+
+All flags here are false alarms, since nothing is AI-generated. They land on **non-rigid motion**
+(a deforming cartoon body, a changing facial expression) and on **heavy compression**, which
+doubles the peak for identical content. The synthetic benchmarks only had rigid sprites, so this
+is the main gap they did not test. For scale: a synthetic vanish clip saved as mp4 scores 9.4.
+Next: score real AI-generated clips against real footage of similar scenes.

@@ -129,3 +129,31 @@ Train it much longer, about 3.5x more steps, then re-run the quality battery (no
 steps, shared noise, averaged sharing) on the better model. If averaged sharing still beats
 fewer steps at matched speedup on a model whose samples are closer to real, that is a real
 result.
+
+## R3f (12k-step model). Full quality battery: two metrics, and they disagree
+
+300 samples per method, same seeds; FD-rand floor (real vs real) 5.6e-6; C2ST = held-out
+accuracy of a small 3D-conv real-vs-generated classifier (0.5 = indistinguishable).
+
+| Method | Speedup | FD-rand | C2ST | Static share | Jerk |
+| --- | --- | --- | --- | --- | --- |
+| normal 20 steps | 1.0x | 0.000062 | 0.94 | 0.55 | 0.111 |
+| normal 10 / 8 / 6 / 5 | 2 / 2.5 / 3.3 / 4x | 0.00019 / 0.00027 / 0.00036 / 0.00043 | 0.82 / 0.74 / 0.75 / 0.81 | ~0.59 | 0.10-0.08 |
+| shared noise (exact sharing) | 2.4x | 0.00153 | **0.99** | 0.74 | 0.244 |
+| averaged sharing 20 steps, thr 0.03 / 0.06 | 2.4 / 3.5x | 0.00036 / 0.00023 | 0.89 / 0.89 | 0.76 / 0.91 | 0.16 / 0.18 |
+| averaged + re-noised 20 steps | 2.4x | 0.00033 | 0.94 | 0.75 | 0.169 |
+| averaged sharing 10 steps, thr 0.03 / 0.06 | 3.8 / 5.2x | 0.000053 / 0.000045 | 0.84 / 0.79 | 0.76 / 0.91 | 0.13 / 0.15 |
+| averaged + re-noised 10 steps | 3.8x | 0.00030 | 0.90 | 0.75 | 0.144 |
+
+**Observations.**
+1. FD-rand and C2ST *disagree*. FD ranks 20-step full compute near the best; C2ST finds it
+   the most detectable and fewer-step (blurrier) samples less detectable. The real training
+   clips are smooth and the model's samples are blocky, so on a model this weak each metric
+   largely measures how much of the model's own artifact survives.
+2. The only conclusion both metrics support: **shared noise is the worst method** (FD 25x
+   worse than normal, C2ST 0.99).
+3. Re-noising the averaged leader input, to restore the per-token noise level, does not help
+   and is worse at 10 steps.
+4. 10 steps + averaged sharing is good on both metrics (FD equal to 20-step normal; C2ST 0.79-0.84,
+   better than 20-step normal), at 3.8-5.2x fewer FLOPs. Still not trusted until the
+   better-trained model reproduces it.

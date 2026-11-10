@@ -291,3 +291,47 @@ averaging gather and the scatter back (`experiments/r4_wallclock.py`):
 saving appears. From about 500 tokens up, the measured speedup tracks the FLOP ratio (93% of
 it at 4k tokens). This is CPU only; GPU attention kernels have different overheads, but the
 direction supports the FLOP projection.
+
+## Independent review of the R3 code, and the corrected numbers
+
+An automated reviewer re-derived the method and checked it numerically:
+- run_kept and the kept-sequence forward match the full forward exactly.
+- A log(m) key bias equals duplicating the key m times (difference 4e-6).
+- avg_sample equals the ordinary sampler when nothing is shared (to within 1e-6).
+- The re-noise variance is correct, and there is no t = 1 division.
+- The draft cost is counted, and every method is costed the same way.
+- C2ST has a clean train/test split, and FD's sqrtm is real.
+- One reported number was reproduced exactly.
+
+**One real issue, now fixed.** The re-noising draws used seed 0 for every clip, so all clips
+shared the same fresh noise at each static position. They now use a per-clip seed. The old
+numbers are kept in the JSONs under `superseded_constant_renoise_seed`.
+
+**Corrected key comparison** (per-clip seeds; all seven metrics; set 1 / set 2):
+
+| Method | Speedup | FD | C2ST | Valid | Area drift | Flicker | Velocity jerk | Appearance drift |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| normal 20 | 1x | 0.000077 / 0.000152 | 0.66 / 0.66 | 0.19 / 0.20 | 0.97 / 0.99 | 0.010 / 0.009 | 1.74 / 1.68 | 0.40 / 0.40 |
+| **re-noised sharing 20, thr 0.02** | **2.4x** | 0.000084 / 0.000040 | 0.68 / 0.65 | 0.16 / 0.17 | 1.02 / 1.05 | 0.006 / 0.006 | 1.56 / 1.50 | 0.40 / 0.38 |
+| normal 8 | 2.5x | 0.000343 / 0.000475 | 0.78 / 0.83 | 0.07 / 0.10 | 1.15 / 1.24 | 0.010 / 0.010 | 1.38 / 1.32 | 0.38 / 0.35 |
+| **re-noised sharing 10, thr 0.015** | **3.0x** | 0.000046 / 0.000086 | 0.66 / 0.58 | 0.12 / 0.10 | 1.11 / 1.18 | 0.007 / 0.007 | 1.61 / 1.51 | 0.38 / 0.37 |
+| normal 6 | 3.3x | 0.000467 / 0.000613 | 0.87 / 0.88 | 0.04 / 0.07 | 1.29 / 1.33 | 0.010 / 0.010 | 1.22 / 1.18 | 0.36 / 0.35 |
+| **re-noised sharing 10, thr 0.02** | **3.9x** | 0.000048 / 0.000041 | 0.68 / 0.67 | 0.08 / 0.10 | 1.16 / 1.18 | 0.006 / 0.006 | 1.42 / 1.37 | 0.38 / 0.38 |
+| normal 5 | 4x | 0.000554 / 0.000708 | 0.89 / 0.91 | 0.02 / 0.04 | 1.39 / 1.40 | 0.010 / 0.010 | 1.06 / 1.11 | 0.33 / 0.35 |
+
+**Honest reading, with the reviewer's caveats.**
+1. Against the fewer-steps baseline at matched speed, re-noised sharing wins on FD, C2ST,
+   validity and area drift on both seed sets, by margins larger than the metric noise.
+2. It *loses* on velocity jerk and appearance drift. Both of those also improve as steps
+   decrease (normal 5 is best), because blurrier samples change less, so they do not measure
+   quality here. They are reported rather than hidden.
+3. The physics checker partly favours frozen backgrounds, i.e. the family under test: flicker
+   rewards freezing by construction, and shared noise also scores well on validity. That is why
+   FD and C2ST are needed as appearance checks. The full method is the only one good on both.
+4. Metric noise: FD for normal 20 differs 2x between seed sets; C2ST is about ±0.035.
+   "Matches full compute at 2.4x" is within that noise. The gains over fewer steps are not.
+5. FD-rand is close to one-dimensional (top covariance eigenvalue about 80% of the trace),
+   which is why it can prefer clearly worse variants (no proportional attention: FD 0.000012,
+   C2ST 0.93). Decisions rest on agreement across metrics, never on FD alone.
+6. Thresholds were chosen on set 1; set 2 (different noise and a different real set) is a
+   genuine holdout.

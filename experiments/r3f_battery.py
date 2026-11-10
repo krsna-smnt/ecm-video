@@ -42,7 +42,11 @@ def shared_map(x0, thr):
     return src, torch.from_numpy(np.unique(src.numpy()))
 
 
-def avg_sample(x0, steps, thr, renoise=False, seed=0, prop=True, average=True):
+CUR = {"seed": 0}      # per-clip seed for the re-noising draws (review fix: was a constant 0 for every clip)
+
+
+def avg_sample(x0, steps, thr, renoise=False, seed=None, prop=True, average=True):
+    seed = CUR["seed"] if seed is None else seed
     src, keep = shared_map(x0, thr)
     inv = E.inv_index(keep, src); mult = torch.bincount(inv, minlength=len(keep)).float()
     kb = torch.log(mult) if prop else torch.zeros_like(mult)
@@ -81,6 +85,7 @@ out = json.load(open(OUTF)) if os.path.exists(OUTF) else {"ckpt": tag, "n": N}
 full = m.flops(m.N) * 20
 fd_floor = out.get("real_vs_real_FD") or float(np.mean([fd(feats(real, s), feats(make_dataset(N, seed=8765), s)) for s in range(5)]))
 out["real_vs_real_FD"] = fd_floor
+out["meta"] = dict(SEED0=SEED0, REALSEED=int(os.environ.get("REALSEED", 4321)), N=N, renoise_seed="per clip (fixed)")
 out.setdefault("real_physics", physics(real))
 t0 = time.time()
 for name, fn in METHODS.items():
@@ -89,6 +94,7 @@ for name, fn in METHODS.items():
     vids, fl = [], []
     for i in range(N):
         x0 = torch.randn(1, m.N, m.P ** 2, generator=torch.Generator().manual_seed(SEED0 + i))
+        CUR["seed"] = 900_000 + SEED0 + i
         xf, f = fn(x0)
         vids.append(np.clip(m.unpatchify(xf)[0].numpy(), -1, 1)); fl.append(f)
     vids = np.stack(vids).astype(np.float32)

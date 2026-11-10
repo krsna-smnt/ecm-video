@@ -50,16 +50,28 @@ def conditional_surprise(f_t: np.ndarray, f_t1: np.ndarray, fwd: np.ndarray) -> 
 
 def score_video(frames: np.ndarray, mode: str = "conditional", smooth_sigma: float = 1.5,
                 dead_zone: float = 0.35, mb_thresh: float = 1.2, mb_dilate: int = 3,
-                edge_margin: int = 4, flow_win: int = 9, neighbour_boundaries: bool = True) -> PVSResult:
+                edge_margin: int = 4, flow_win: int = 9, neighbour_boundaries: bool = True,
+                prefilter: float = 0.0) -> PVSResult:
     """frames: T x H x W gray uint8/float (0-255). Returns PVS + baseline + maps.
 
     mode = "conditional": s = excess bits of the motion-compensated residual (default).
     mode = "scalar":      s = change in the scalar density along the flow (the original
                           formulation; kept for comparison, it misses content swaps).
+    mode = "vector":      s = RMS change of the 9-channel entropy fingerprint along the flow.
+    mode = "combined":    flag only where content AND fingerprint both changed.
     """
     frames = frames.astype(np.float32)
+    if prefilter > 0:          # wash out codec block artifacts before measuring anything
+        frames = np.stack([cv2.GaussianBlur(f, (0, 0), prefilter) for f in frames])
     T = len(frames)
     iota = np.stack([cv2.GaussianBlur(info_density(f), (0, 0), smooth_sigma) for f in frames])
+    if mode in ("vector", "combined"):
+        from .vector import fingerprint
+        phi = [fingerprint(f) for f in frames]
+
+    def vec_source(t, fwd):
+        w = np.stack([warp(phi[t + 1][..., c], fwd) for c in range(phi[t].shape[-1])], -1)
+        return np.sqrt(np.mean((w - phi[t]) ** 2, -1))          # RMS change across channels (bits)
 
     F = [farneback(frames[t], frames[t + 1], flow_win) for t in range(T - 1)]   # t -> t+1
     B = [farneback(frames[t + 1], frames[t], flow_win) for t in range(T - 1)]   # t+1 -> t
@@ -77,8 +89,14 @@ def score_video(frames: np.ndarray, mode: str = "conditional", smooth_sigma: flo
         # --- source term ---
         if mode == "scalar":
             s = warp(iota[t + 1], fwd) - iota[t]
+        elif mode == "vector":
+            s = vec_source(t, fwd)
         else:
             s = cv2.GaussianBlur(conditional_surprise(frames[t], frames[t + 1], fwd), (0, 0), smooth_sigma)
+            if mode == "combined":
+                # both must agree: geometric mean of the two excesses (each past its dead zone)
+                sv = vec_source(t, fwd)
+                s = np.sqrt(np.maximum(s, 0) * np.maximum(sv, 0))
 
         # --- where creation/destruction is legal ---
         # Locate occlusion boundaries from the NEIGHBOURING frame pairs, not the pair being

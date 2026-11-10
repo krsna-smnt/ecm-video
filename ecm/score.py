@@ -36,6 +36,9 @@ def main(argv=None):
     ap.add_argument("--frames", type=int, default=64)
     ap.add_argument("--stride", type=int, default=1, help="use every n-th frame (for high-fps footage)")
     ap.add_argument("--heatmap", default=None, help="directory for overlay videos")
+    ap.add_argument("--prefilter", type=float, default=2.0,
+                    help="blur sigma applied first to wash out compression blocks (A1b: 0.64 -> 0.76 AUC on JPEG clips)")
+    ap.add_argument("--mode", default="conditional", choices=["conditional", "vector", "combined", "scalar"])
     a = ap.parse_args(argv)
     print(f"{'file':40s} {'pvs_peak':>9s} {'pvs_mean':>9s} {'worst_fr':>8s} {'warp_err':>9s}")
     for p in a.videos:
@@ -43,7 +46,7 @@ def main(argv=None):
             f = load_video(p, a.max_side, a.frames, a.stride)
         except Exception as e:
             print(f"{os.path.basename(p):40s} ERROR {e}"); continue
-        r = score_video(f)
+        r = score_video(f, mode=a.mode, prefilter=a.prefilter)
         print(f"{os.path.basename(p)[:40]:40s} {r.pvs_peak:9.4f} {r.pvs_mean:9.4f} "
               f"{int(np.argmax(r.frame_scores)):8d} {r.warp_err_mean:9.3f}")
         if a.heatmap:

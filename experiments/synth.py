@@ -63,7 +63,7 @@ def contrast_patch(size, bg_mean, rng):
 
 
 def make_clip(event: str, rng, T: int = 16, H: int = 128, W: int = 128, pan: bool = False,
-              noise: float = 1.5, event_frame: int = 8, fade: int = 1):
+              noise: float = 1.5, event_frame: int = 8, fade: int = 1, jpeg: int = 0):
     """Returns frames (T,H,W) float32, label (1 = violation), event mask (T,H,W) bool."""
     tex = textures()[rng.integers(len(textures()))]
     pad = 40
@@ -96,6 +96,7 @@ def make_clip(event: str, rng, T: int = 16, H: int = 128, W: int = 128, pan: boo
         p0 = np.array([W / 2 - size / 2, H / 2 - size / 2]) - v * (T - 2)
 
     swap_patch = contrast_patch(size, bg_mean, rng)
+    light_dir = rng.choice([-1.0, 1.0]) if event == "light" else 0.0
     frames, emask = [], []
     for t in range(T):
         off = pad + pan_v * t
@@ -124,8 +125,19 @@ def make_clip(event: str, rng, T: int = 16, H: int = 128, W: int = 128, pan: boo
         if occluder is not None:
             ot, om = place((H, W), occluder[0], occluder[1], occluder[2][0], occluder[2][1])
             f = f * (1 - om) + ot * om
+        if event == "light":
+            # legal: global brightness drift + a soft shadow sweeping across the frame
+            gain = 1.0 + 0.35 * (t / (T - 1)) * light_dir
+            yy, xx = np.mgrid[0:H, 0:W]
+            cx = -0.3 * W + 1.6 * W * t / (T - 1)
+            shadow = 1.0 - 0.35 * np.exp(-(((xx - cx) / (0.25 * W)) ** 2))
+            f = f * gain * shadow
         f = f + rng.normal(0, noise, f.shape)
-        frames.append(np.clip(f, 0, 255))
+        f = np.clip(f, 0, 255)
+        if jpeg:
+            ok, buf = cv2.imencode(".jpg", f.astype(np.uint8), [cv2.IMWRITE_JPEG_QUALITY, jpeg])
+            f = cv2.imdecode(buf, cv2.IMREAD_GRAYSCALE).astype(np.float32)
+        frames.append(f)
         _, mfull = place((H, W), patch, mask, pos[0], pos[1])
         emask.append((mfull > 0.3) & e_on)
     label = int(event in ("vanish", "appear", "melt", "swap", "boil"))
@@ -133,4 +145,5 @@ def make_clip(event: str, rng, T: int = 16, H: int = 128, W: int = 128, pan: boo
 
 
 LEGAL = ["none", "occlude", "exit", "enter"]
+LEGAL_STRESS = LEGAL + ["light"]          # A1b adds a legal lighting change
 VIOLATIONS = ["vanish", "appear", "melt", "swap", "boil"]

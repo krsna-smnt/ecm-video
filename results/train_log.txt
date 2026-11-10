@@ -10,3 +10,9 @@ Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pyto
 700 0.0954 9.5min
 800 0.121 11.0min
 900 0.1378 12.4min
+1000 0.0948 13.7min
+1100 0.1089 17.7min
+1200 0.0992 20.6min
+1300 0.0998 25.3min
+1400 0.0985 30.7min
+1500 0.0839 32.2min

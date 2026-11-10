@@ -1,0 +1,38 @@
+[
+ {
+  "tokens": 128,
+  "width": 128,
+  "depth": 4,
+  "full_ms": 3.0779128000479736,
+  "shared_ms": 2.452509133339239,
+  "measured_speedup": 1.2550056422653195,
+  "flop_speedup": 3.7372262773722627
+ },
+ {
+  "tokens": 512,
+  "width": 256,
+  "depth": 6,
+  "full_ms": 52.405134666211474,
+  "shared_ms": 14.62478400026157,
+  "measured_speedup": 3.583309993862076,
+  "flop_speedup": 4.053225866407228
+ },
+ {
+  "tokens": 1024,
+  "width": 256,
+  "depth": 6,
+  "full_ms": 80.84692949978489,
+  "shared_ms": 26.11639800034027,
+  "measured_speedup": 3.0956385906943042,
+  "flop_speedup": 4.625681294871742
+ },
+ {
+  "tokens": 4096,
+  "width": 256,
+  "depth": 4,
+  "full_ms": 470.82901850080816,
+  "shared_ms": 74.73400199978641,
+  "measured_speedup": 6.30006430676834,
+  "flop_speedup": 6.7765940993133835
+ }
+]

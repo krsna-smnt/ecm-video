@@ -274,3 +274,20 @@ then confirmed on seed set 2 (the confirmation used the thresholds picked on set
   FD-rand is not trustworthy alone; decisions should rest on agreement across metrics.
 
 An independent automated review of the R3 code has been launched; results go below.
+
+## R4. Does the token saving show up in wall-clock time? (CPU, random weights)
+
+One forward pass, all tokens vs the 30% kept by re-noised sharing (thr 0.02), including the
+averaging gather and the scatter back (`experiments/r4_wallclock.py`):
+
+| Tokens | Width x depth | Full | Shared (30% kept) | Measured | FLOP ratio |
+| --- | --- | --- | --- | --- | --- |
+| 128 | 128 x 4 | 3.1 ms | 2.5 ms | 1.26x | 3.74x |
+| 512 | 256 x 6 | 52 ms | 15 ms | 3.58x | 4.05x |
+| 1,024 | 256 x 6 | 81 ms | 26 ms | 3.10x | 4.63x |
+| 4,096 | 256 x 4 | 471 ms | 75 ms | **6.30x** | 6.78x |
+
+**Observation.** At the toy model's size (128 tokens), overhead dominates and little of the
+saving appears. From about 500 tokens up, the measured speedup tracks the FLOP ratio (93% of
+it at 4k tokens). This is CPU only; GPU attention kernels have different overheads, but the
+direction supports the FLOP projection.

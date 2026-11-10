@@ -194,3 +194,60 @@ and the share of clips whose object is tracked in every frame. Real clips are no
    permanence.
 
 **Next.** Confirm or refute observation 3 on the 42k-step model.
+
+## R3f on the 42k-step model: re-noised averaged frame sharing beats fewer steps
+
+**Model.** The same architecture trained 42k steps instead of 12k. Its samples are much harder
+to detect (C2ST 0.66 vs 0.94 at 20 steps), and the metrics now mostly agree: fewer steps get
+monotonically worse on FD, C2ST and physics.
+
+**Two changes compared with the 12k results.**
+1. The better model's 2-step draft is cleaner, so at thr 0.03 it marks 90-92% of positions
+   static (real data: 81%). That over-shares and freezes regions objects move into. A
+   threshold sweep (0.01-0.03) shows thr ~0.02 gives a shared share of 0.80, matching real.
+2. **Re-noising the averaged leader input now helps** (FD 0.00021 vs 0.00080 for plain
+   averaging at thr 0.03). Re-noising restores the per-token noise level the model was trained
+   on. It did not help on the 12k model; plausibly it matters once the model is accurate
+   enough for the noise-level mismatch to dominate.
+
+**Key comparison** (300 samples each; two independent seed sets: noise 30000+ / real 4321, and
+noise 70000+ / real 2468):
+
+| Method | Speedup | FD (set 1 / 2) | C2ST (1 / 2) | Valid (1 / 2) | Area drift (1 / 2) |
+| --- | --- | --- | --- | --- | --- |
+| normal 20 steps | 1.0x | 0.000077 / 0.000152 | 0.66 / 0.66 | 0.19 / 0.20 | 0.97 / 0.99 |
+| **re-noised sharing, 20 steps, thr 0.02** | **2.4x** | 0.000123 / 0.000181 | **0.67 / 0.69** | **0.18 / 0.15** | 1.03 / 1.03 |
+| normal 8 steps | 2.5x | 0.000343 / 0.000475 | 0.78 / 0.83 | 0.07 / 0.10 | 1.15 / 1.24 |
+| **re-noised sharing, 10 steps, thr 0.015** | **3.0x** | 0.000198 / 0.000358 | **0.64 / 0.74** | 0.12 / 0.11 | 1.06 / 1.14 |
+| normal 6 steps | 3.3x | 0.000467 / 0.000613 | 0.87 / 0.88 | 0.04 / 0.07 | 1.29 / 1.33 |
+| **re-noised sharing, 10 steps, thr 0.02** | **3.9x** | 0.000196 / 0.000292 | 0.67 / 0.77 | 0.08 / 0.11 | 1.14 / 1.17 |
+| normal 5 steps | 4.0x | 0.000554 / 0.000708 | 0.89 / 0.91 | 0.02 / 0.04 | 1.39 / 1.40 |
+| shared noise (exact sharing) | 3.4x | 0.00227 / 0.00237 | 0.98 / 0.98 | 0.19 / 0.22 | 0.98 / 1.01 |
+
+**Result.** At every matched speedup, re-noised averaged frame sharing beats taking fewer
+steps on all four metrics, on both seed sets. At 2.4x it is close to full compute (C2ST within
+0.01-0.04, validity within 0.01-0.05). Figure: `results/fig_r3_renoise_vs_steps.png`.
+
+**Projected to a 75.6k-token, 40-layer video DiT** (same token fractions; FLOP calculation,
+not a measurement): 4.3x at near-full quality (20 steps, thr 0.02), and 5.5-6.0x with modest
+loss (10 steps). These stack with step distillation in principle, not yet tested.
+
+**The method, as it now stands** ("re-noised averaged frame sharing"):
+1. Run a 2-step draft; positions whose maximum frame-to-frame change is below thr are static.
+2. Every token keeps its own independent noise.
+3. Each static position is computed once per step, from the mean of its 8 copies' states,
+   re-noised with fresh noise of std (1-t)*sqrt(1-1/m) so the input has the noise level its
+   timestep implies. Proportional attention: a log(m) bias on that key.
+4. The leader's clean prediction is shared, and each copy steps along its own trajectory:
+   eps_i = (x_i - t*x1hat)/(1 - t), x_i <- x_i + (x1hat - eps_i)/N. Unshared tokens take
+   exactly the ordinary Euler step (verified to 1e-6).
+
+**Why it works (ECM reading).** A static region's information is conserved across frames, so
+it only needs to be computed once. But its *noise* is not information, and the model needs
+independent noise per frame in order to denoise. Averaging the copies' states pools that
+redundancy (what the model does internally), and re-noising keeps the input in-distribution.
+"Share the conserved content, not the noise" is the lesson.
+
+**Caveats.** Tiny model (1.1M parameters), synthetic static-camera toy world, 32x32, 8 frames;
+FLOP speedups measured, real-scale speedups projected; thresholds swept on seed set 1 and
+then confirmed on seed set 2 (the confirmation used the thresholds picked on set 1).

@@ -22,8 +22,13 @@ from experiments.toy_physics import physics
 torch.set_grad_enabled(False)
 m = R.model; g2 = m.g ** 2
 N = int(os.environ.get("NSAMP", 400))
-real = make_dataset(N, seed=4321)
-tag = os.path.basename(os.environ.get("CKPT", "results/tiny_ckpt.pt")).replace(".pt", "")
+SEED0 = int(os.environ.get("SEED0", 30_000))          # noise seed offset (confirmation runs use a fresh one)
+ONLY = os.environ.get("ONLY")                         # comma-separated subset of methods
+real = make_dataset(N, seed=int(os.environ.get("REALSEED", 4321)))
+tag = os.path.basename(os.environ.get("CKPT", "results/tiny_ckpt.pt")).replace(".pt", "") + os.environ.get("TAG", "")
+
+
+SHARED_FRAC = {}
 
 
 def shared_map(x0, thr):
@@ -64,6 +69,8 @@ for s in [20, 10]:
     for thr in [0.03, 0.06]:
         METHODS[f"avg_{s}_thr{thr}"] = lambda x0, s=s, thr=thr: avg_sample(x0, s, thr)
     METHODS[f"avg_renoise_{s}_thr0.03"] = lambda x0, s=s: avg_sample(x0, s, 0.03, renoise=True)
+    for thr in [0.01, 0.015, 0.02]:   # added after the 42k run showed over-sharing at 0.03
+        METHODS[f"avg_renoise_{s}_thr{thr}"] = lambda x0, s=s, thr=thr: avg_sample(x0, s, thr, renoise=True)
 
 OUTF = f"results/r3f_battery_{tag}.json"
 out = json.load(open(OUTF)) if os.path.exists(OUTF) else {"ckpt": tag, "n": N}
@@ -73,11 +80,11 @@ out["real_vs_real_FD"] = fd_floor
 out.setdefault("real_physics", physics(real))
 t0 = time.time()
 for name, fn in METHODS.items():
-    if name in out:
+    if name in out or (ONLY and name not in ONLY.split(",")):
         continue
     vids, fl = [], []
     for i in range(N):
-        x0 = torch.randn(1, m.N, m.P ** 2, generator=torch.Generator().manual_seed(30_000 + i))
+        x0 = torch.randn(1, m.N, m.P ** 2, generator=torch.Generator().manual_seed(SEED0 + i))
         xf, f = fn(x0)
         vids.append(np.clip(m.unpatchify(xf)[0].numpy(), -1, 1)); fl.append(f)
     vids = np.stack(vids).astype(np.float32)

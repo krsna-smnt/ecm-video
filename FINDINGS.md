@@ -110,3 +110,26 @@ All flags here are false alarms, since nothing is AI-generated. They land on **n
 doubles the peak for identical content. The synthetic benchmarks only had rigid sprites, so this
 is the main gap they did not test. For scale: a synthetic vanish clip saved as mp4 scores 9.4.
 Next: score real AI-generated clips against real footage of similar scenes.
+
+## 5. First real AI clips (15 clips, 8 generators, Rapidata text-to-video dataset, Apache-2.0)
+
+Same 2 prompts (night-time dance crews; a skateboarder) across Runway Alpha, HunyuanVideo,
+Pika 2.2, Luma Ray 2, Sora, Veo 2, Veo 3 and Wan 2.1. Scored with `--stride 2` (64 frames,
+256 px, prefilter 2). Scores: `results/real_ai_scores.txt`. Worst moments: `results/fig_ai_worst.png`.
+
+- **No separation from real footage:** AI peak PVS ranges 0.19-2.22 (median 0.47); the 4
+  real/CGI clips range 0.64-1.25. The sample is tiny and the content does not match, so this
+  is an observation, not a test.
+- **What drove the highest AI scores was mostly legitimate events, not melting:**
+  - Veo 3 (2.22): stage lights and pyrotechnics flashing, i.e. real new light.
+  - Veo 2 (1.59): a cross-dissolve to a new shot, i.e. an edit.
+  - HunyuanVideo, Ray 2, Pika: fast dancing and skating. Limbs smear and deform, possibly
+    partly real artifacts, but the score cannot tell those apart from fast non-rigid motion.
+- **What the metric needs before it can work on real AI video:**
+  1. Shot-cut and dissolve detection: split the clip and score each shot separately.
+  2. Lighting-change handling: per-region gain normalisation, or a lighting term in the
+     source model.
+  3. Non-rigid motion: better flow (RAFT), or compare texture fingerprints in smoothly
+     deforming regions.
+  4. Per-clip human melting labels (T6), without which a high score cannot be called right
+     or wrong.

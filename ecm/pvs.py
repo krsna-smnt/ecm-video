@@ -33,7 +33,28 @@ class PVSResult:
     warp_err_frames: np.ndarray = field(default_factory=lambda: np.zeros(0))
 
 
-def conditional_surprise(f_t: np.ndarray, f_t1: np.ndarray, fwd: np.ndarray) -> np.ndarray:
+def local_light_match(w: np.ndarray, ref: np.ndarray, sigma: float = 12.0) -> np.ndarray:
+    """Match local mean and contrast of w to ref (removes smooth lighting/exposure changes).
+
+    The window is large (sigma 12 px) so that object-sized content changes still leave
+    a residual; only slowly varying gain/offset fields are absorbed.
+    """
+    mw = cv2.GaussianBlur(w, (0, 0), sigma); mr = cv2.GaussianBlur(ref, (0, 0), sigma)
+    sw = np.sqrt(np.maximum(cv2.GaussianBlur(w * w, (0, 0), sigma) - mw * mw, 1.0))
+    sr = np.sqrt(np.maximum(cv2.GaussianBlur(ref * ref, (0, 0), sigma) - mr * mr, 1.0))
+    return (w - mw) * np.clip(sr / sw, 0.5, 2.0) + mr
+
+
+def is_shot_change(f_t: np.ndarray, f_t1: np.ndarray, thresh: float = 0.5) -> bool:
+    """Cut / dissolve detector: low correlation of the two frames' 32-bin histograms
+    together with a large mean absolute difference."""
+    h1 = cv2.calcHist([f_t.astype(np.uint8)], [0], None, [32], [0, 256]).ravel()
+    h2 = cv2.calcHist([f_t1.astype(np.uint8)], [0], None, [32], [0, 256]).ravel()
+    corr = cv2.compareHist(h1.astype(np.float32), h2.astype(np.float32), cv2.HISTCMP_CORREL)
+    return bool(corr < thresh and np.mean(np.abs(f_t1 - f_t)) > 12)
+
+
+def conditional_surprise(f_t: np.ndarray, f_t1: np.ndarray, fwd: np.ndarray, light_norm: bool = False) -> np.ndarray:
     """Excess bits needed to explain frame t+1 given motion-compensated frame t.
 
     This is the source term in its content form: information *created* at x.
@@ -41,7 +62,10 @@ def conditional_surprise(f_t: np.ndarray, f_t1: np.ndarray, fwd: np.ndarray) -> 
     whose scale is the frame's robust noise level (median |r| / ln 2), and the
     entropy of pure noise is subtracted, so legal motion costs ~0 excess bits.
     """
-    r = warp(f_t1, fwd) - f_t
+    w = warp(f_t1, fwd)
+    if light_norm:
+        w = local_light_match(w, f_t)
+    r = w - f_t
     b = max(np.median(np.abs(r)) / np.log(2), 0.5)          # Laplace median = b ln2
     bits = np.abs(r) / (b * np.log(2)) + np.log2(2 * b)     # -log2 density of Laplace(0,b)
     h_noise = np.log2(2 * np.e * b)                          # entropy of the noise itself
@@ -51,7 +75,7 @@ def conditional_surprise(f_t: np.ndarray, f_t1: np.ndarray, fwd: np.ndarray) -> 
 def score_video(frames: np.ndarray, mode: str = "conditional", smooth_sigma: float = 1.5,
                 dead_zone: float = 0.35, mb_thresh: float = 1.2, mb_dilate: int = 3,
                 edge_margin: int = 4, flow_win: int = 9, neighbour_boundaries: bool = True,
-                prefilter: float = 0.0) -> PVSResult:
+                prefilter: float = 0.0, light_norm: bool = False, skip_cuts: bool = False) -> PVSResult:
     """frames: T x H x W gray uint8/float (0-255). Returns PVS + baseline + maps.
 
     mode = "conditional": s = excess bits of the motion-compensated residual (default).
@@ -92,7 +116,7 @@ def score_video(frames: np.ndarray, mode: str = "conditional", smooth_sigma: flo
         elif mode == "vector":
             s = vec_source(t, fwd)
         else:
-            s = cv2.GaussianBlur(conditional_surprise(frames[t], frames[t + 1], fwd), (0, 0), smooth_sigma)
+            s = cv2.GaussianBlur(conditional_surprise(frames[t], frames[t + 1], fwd, light_norm), (0, 0), smooth_sigma)
             if mode == "combined":
                 # both must agree: geometric mean of the two excesses (each past its dead zone)
                 sv = vec_source(t, fwd)
@@ -113,6 +137,8 @@ def score_video(frames: np.ndarray, mode: str = "conditional", smooth_sigma: flo
         else:
             allowed |= band(fwd) | band(bwd)
         v = np.maximum(np.abs(s) - dead_zone, 0.0) * (~allowed)
+        if skip_cuts and is_shot_change(frames[t], frames[t + 1]):
+            v = np.zeros_like(v)                      # a cut/dissolve is an edit, not a violation
         scores.append(v.sum() / (iota[t].sum() + 1e-6))
         heat.append(v); allowed_all.append(allowed); src_all.append(s)
 

@@ -17,6 +17,7 @@ import experiments.r3c_avg_sharing as R
 from experiments.r3_shared_noise_quality import c2st
 from experiments.r3b_quality import fd, feats, tstats
 from experiments.tiny_data import make_dataset
+from experiments.toy_physics import physics
 
 torch.set_grad_enabled(False)
 m = R.model; g2 = m.g ** 2
@@ -69,6 +70,7 @@ out = json.load(open(OUTF)) if os.path.exists(OUTF) else {"ckpt": tag, "n": N}
 full = m.flops(m.N) * 20
 fd_floor = out.get("real_vs_real_FD") or float(np.mean([fd(feats(real, s), feats(make_dataset(N, seed=8765), s)) for s in range(5)]))
 out["real_vs_real_FD"] = fd_floor
+out.setdefault("real_physics", physics(real))
 t0 = time.time()
 for name, fn in METHODS.items():
     if name in out:
@@ -80,7 +82,10 @@ for name, fn in METHODS.items():
         vids.append(np.clip(m.unpatchify(xf)[0].numpy(), -1, 1)); fl.append(f)
     vids = np.stack(vids).astype(np.float32)
     out[name] = dict(speedup=float(full / np.mean(fl)), FD=float(np.mean([fd(feats(real, s), feats(vids, s)) for s in range(5)])),
-                     c2st=float(np.mean([c2st(real, vids, s, epochs=10) for s in range(2)])), **tstats(vids))
+                     c2st=float(np.mean([c2st(real, vids, s, epochs=10) for s in range(2)])), **tstats(vids),
+                     **{"phys_" + k: v for k, v in physics(vids).items()})
     print(f"{name:24s} speed {out[name]['speedup']:.2f}  FD {out[name]['FD']:.6f}  C2ST {out[name]['c2st']:.3f}  "
-          f"static {out[name]['static_frac']:.2f}  jerk {out[name]['moving_jerk']:.3f}  ({time.time() - t0:.0f}s)", flush=True)
+          f"static {out[name]['static_frac']:.2f}  jerk {out[name]['moving_jerk']:.3f}  "
+          f"phys: flick {out[name]['phys_bg_flicker']:.3f} area {out[name]['phys_area_drift']:.2f} "
+          f"vjerk {out[name]['phys_vel_jerk']:.2f} app {out[name]['phys_app_drift']:.2f} valid {out[name]['phys_valid']:.2f}  ({time.time() - t0:.0f}s)", flush=True)
     json.dump(out, open(OUTF, "w"), indent=1)

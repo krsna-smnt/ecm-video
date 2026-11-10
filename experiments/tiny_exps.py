@@ -35,7 +35,7 @@ N_STEPS = 20
 def load():
     m = TinyVideoDiT()
     import os
-    s = torch.load(os.environ.get("CKPT", "results/tiny_ckpt.pt"))
+    s = torch.load(os.environ.get("CKPT", "results/tiny_ckpt.pt"), weights_only=False)  # our own file
     m.load_state_dict(s["ema"]); m.eval()
     return m
 
@@ -142,6 +142,20 @@ def attention_maps(model, x, t):
     return maps
 
 
+def projected_speedup(seq_frac, q_fracs, N=75_600, d=3072, depth=40):
+    """Speedup the same token fractions would give at real video-DiT scale.
+
+    Default shape is roughly a 5 s, 720p clip in a ~13B-parameter-class video DiT
+    (about 75k latent tokens, width 3072, 40 layers). This is a FLOP projection from the
+    toy run's token fractions, not a measurement. Same per-layer formula as TinyVideoDiT.flops.
+    """
+    def fl(n_seq, n_q):
+        return depth * (2 * n_q * d * d * 3 + 4 * n_q * n_seq * d + 2 * n_q * d * d + 16 * n_q * d * d)
+    full = fl(N, N) * len(q_fracs)
+    n_seq = seq_frac * N
+    return full / sum(fl(n_seq, qf * n_seq) for qf in q_fracs if qf > 0)
+
+
 # ---------------------------------------------------------------- oracle maps
 def token_density(model, vid):
     """Mean information density (bits/px) of each token's patch in the finished video."""
@@ -209,17 +223,20 @@ def run(n_clips=24):
     print("B1", res["B1"], flush=True)
 
     def evaluate(make_policy=None, make_share=None, n_eval=n_clips, steps=N_STEPS):
-        ps, fl, pv = [], [], []
+        ps, fl, pv, proj = [], [], [], []
         for c in clips[:n_eval]:
             keep = share = None
             if make_share is not None:
                 keep, share = make_share(c)
             pol = None if make_policy is None else make_policy(c)
-            xf, f, _, _ = sample(model, c["x0"], steps, policy=pol, keep=keep, share_src=share)
+            xf, f, _, counts = sample(model, c["x0"], steps, policy=pol, keep=keep, share_src=share)
             v = model.unpatchify(xf)[0].numpy()
             ps.append(psnr(v, c["vid"])); fl.append(f); pv.append(pvs_of(v))
+            seq_frac = (model.N if keep is None else len(keep)) / model.N
+            proj.append(projected_speedup(seq_frac, [q / (seq_frac * model.N) for q in counts]))
         return dict(psnr=float(np.mean(ps)), psnr_min=float(np.min(ps)),
-                    speedup=float(full_flops / np.mean(fl)), pvs=float(np.mean(pv)))
+                    speedup=float(full_flops / np.mean(fl)), projected_speedup_real_scale=float(np.mean(proj)),
+                    pvs=float(np.mean(pv)))
 
     ref_pvs = float(np.mean([pvs_of(c["vid"]) for c in clips]))
     res["ref_pvs"] = ref_pvs

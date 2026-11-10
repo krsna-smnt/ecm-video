@@ -24,7 +24,7 @@ opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.0)
 ema = TinyVideoDiT(); ema.load_state_dict(model.state_dict())
 step, log = 0, []
 if os.path.exists(ck):
-    s = torch.load(ck)
+    s = torch.load(ck, weights_only=False)  # our own checkpoint
     model.load_state_dict(s["model"]); ema.load_state_dict(s["ema"]); opt.load_state_dict(s["opt"])
     step, log = s["step"], s["log"]
 

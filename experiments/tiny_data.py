@@ -10,15 +10,20 @@ from experiments.synth import textures, crop, sprite_mask, place
 
 
 def tiny_clip(rng, T=8, S=32):
+    # v2: smooth background (blurred texture + gradient) so "boring" regions really are
+    # low-information, and crisp textured sprites. v1 used raw downsampled textures, which
+    # at 32x32 are noise-like grain the tiny model could not learn in 3.5k steps.
     tex = textures()[rng.integers(len(textures()))]
-    big = crop(tex, 4 * S, 4 * S, rng)
-    bg = cv2.resize(big, (S, S), interpolation=cv2.INTER_AREA)
-    bg = (bg - bg.mean()) * rng.uniform(0.3, 0.7) + rng.uniform(70, 180)   # calmer background
+    big = crop(tex, 2 * S, 2 * S, rng)
+    bg = cv2.GaussianBlur(cv2.resize(big, (S, S), interpolation=cv2.INTER_AREA), (0, 0), 2.5)
+    yy, xx = np.mgrid[0:S, 0:S] / S
+    gx, gy = rng.uniform(-40, 40, 2)
+    bg = (bg - bg.mean()) * rng.uniform(0.6, 1.2) + gx * (xx - 0.5) + gy * (yy - 0.5) + rng.uniform(80, 170)
     frames = np.repeat(bg[None], T, 0).astype(np.float32)
     for _ in range(int(rng.integers(1, 3))):
-        size = int(rng.integers(7, 12))
+        size = int(rng.integers(9, 14))
         t2 = textures()[rng.integers(len(textures()))]
-        p = cv2.resize(crop(t2, 4 * size, 4 * size, rng), (size, size), interpolation=cv2.INTER_AREA)
+        p = cv2.resize(crop(t2, 2 * size, 2 * size, rng), (size, size), interpolation=cv2.INTER_AREA)
         p = (p - p.mean()) * rng.uniform(0.8, 1.2) + bg.mean() + rng.choice([-1, 1]) * rng.uniform(50, 75)
         m = sprite_mask(size, rng.choice(["square", "ellipse"]), rng)
         v = rng.uniform(-1.6, 1.6, 2)

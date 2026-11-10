@@ -53,7 +53,7 @@ pvs = lambda n: feats[n]["base"]["mean"]
 
 
 def acc(df, fn):
-    h = [0.5 if fn(a) == fn(b) else float((fn(a) < fn(b)) == (m > 0)) for a, b, m in zip(df.a, df.b, df.margin)]
+    h = [0.5 if fn(a) == fn(b) else float((fn(a) < fn(b)) == (m < 0)) for a, b, m in zip(df.a, df.b, df.margin)]  # m<0: a judged less glitchy
     return (float(np.mean(h)), len(h)) if h else (None, 0)
 
 
@@ -69,7 +69,7 @@ out["pvs_all"] = acc(allp, pvs)
 gen = lambda n: n.split("__")[1].split("_")[0] if not n.split("__")[1][0].isdigit() else n.split("__")[1].split("_")[1]
 wins = {}
 for a, b, m in zip(allp.a, allp.b, allp.margin):
-    wins.setdefault(gen(a), []).append(0.5 + m / 2); wins.setdefault(gen(b), []).append(0.5 - m / 2)
+    wins.setdefault(gen(a), []).append(0.5 - m / 2); wins.setdefault(gen(b), []).append(0.5 + m / 2)  # share judged LESS glitchy
 grate = {g: float(np.mean(v)) for g, v in wins.items()}
 contra = strong[[(grate[gen(a)] - grate[gen(b)]) * m < 0 for a, b, m in zip(strong.a, strong.b, strong.margin)]]
 out["generator_rates"] = grate
@@ -82,7 +82,7 @@ out["spearman_generator_pvs_vs_human_rate"] = float(spearmanr([np.mean(gpvs[g]) 
 # within-generator: clip coherence share vs clip PVS
 share = {}
 for a, b, m in zip(allp.a, allp.b, allp.margin):
-    share.setdefault(a, []).append(0.5 + m / 2); share.setdefault(b, []).append(0.5 - m / 2)
+    share.setdefault(a, []).append(0.5 - m / 2); share.setdefault(b, []).append(0.5 + m / 2)  # coherence share (less glitchy)
 within = []
 for g in gpvs:
     cl = [n for n in share if gen(n) == g]

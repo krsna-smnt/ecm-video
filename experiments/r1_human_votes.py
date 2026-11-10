@@ -1,5 +1,9 @@
 """R1: does the Permanence Violation Score agree with human coherence judgments?
 
+NOTE: the Rapidata "Coherence" question is "Which video has more glitches and is more likely
+to be AI generated?", so a vote marks the WORSE clip. (A first version of this script had
+the sign reversed and reported 86%; the corrected value is 1 - 0.86.)
+
 Data: 93 pairs of AI-generated clips (same prompt, different generators) from the Rapidata
 text-to-video preference datasets (Apache-2.0), each with a weighted human vote on
 "Coherence" and a margin >= 0.4. For every clip we compute several scores; for a pair,
@@ -57,7 +61,7 @@ rows = []
 for _, p in pairs.iterrows():
     a, b = key(p.src, p.file_name1), key(p.src, p.file_name2)
     if a in feats and b in feats:
-        rows.append((a, b, float(p.margin)))       # margin > 0: humans found clip a more coherent
+        rows.append((a, b, float(p.margin)))       # margin > 0: MORE humans said clip a has more glitches (worse)
 print("pairs usable:", len(rows))
 
 
@@ -68,7 +72,7 @@ def acc_of(fn):
         va, vb = fn(feats[a]), fn(feats[b])
         if va == vb:
             hits.append(0.5); continue
-        better_is_a = m > 0
+        better_is_a = m < 0          # the vote question is "which has MORE glitches"
         hits.append(float((va < vb) == better_is_a))
     hits = np.array(hits)
     rng = np.random.default_rng(0)

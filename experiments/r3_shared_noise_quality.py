@@ -84,20 +84,22 @@ def temporal_stats(v):
     return np.c_[stat.mean((1, 2)), np.array([dd[:, ~s].mean() if (~s).any() else 0 for dd, s in zip(d, stat)])]
 
 
-t0 = time.time()
-real = make_dataset(N, seed=4321)
-sets = {m: generate(N, m, 20_000 + {"A": 0, "B": 0, "C": 0}[m]) for m in ["A", "B", "C"]}
-print(f"generated in {time.time() - t0:.0f}s", flush=True)
-res = {"n": N}
-for m, fake in sets.items():
-    accs = [c2st(real, fake, s) for s in range(3)]
-    ts_f, ts_r = temporal_stats(fake), temporal_stats(real)
-    res[m] = dict(c2st_acc_mean=float(np.mean(accs)), c2st_accs=accs,
-                  static_frac=float(ts_f[:, 0].mean()), moving_change=float(ts_f[:, 1].mean()))
-    print(m, res[m], flush=True)
-ts_r = temporal_stats(real)
-res["real"] = dict(static_frac=float(ts_r[:, 0].mean()), moving_change=float(ts_r[:, 1].mean()))
-# B vs A directly: can a classifier tell shared-noise samples from normal ones?
-res["A_vs_B_c2st"] = float(np.mean([c2st(sets["A"], sets["B"], s) for s in range(3)]))
-print(res, flush=True)
-json.dump(res, open("results/r3_shared_noise_quality.json", "w"), indent=1)
+if __name__ == "__main__":
+    t0 = time.time()
+    real = make_dataset(N, seed=4321)
+    sets = {m: generate(N, m, 20_000 + {"A": 0, "B": 0, "C": 0}[m]) for m in ["A", "B", "C"]}
+    print(f"generated in {time.time() - t0:.0f}s", flush=True)
+    res = {"n": N}
+    for m, fake in sets.items():
+        accs = [c2st(real, fake, s) for s in range(3)]
+        ts_f, ts_r = temporal_stats(fake), temporal_stats(real)
+        res[m] = dict(c2st_acc_mean=float(np.mean(accs)), c2st_accs=accs,
+                      static_frac=float(ts_f[:, 0].mean()), moving_change=float(ts_f[:, 1].mean()))
+        print(m, res[m], flush=True)
+    ts_r = temporal_stats(real)
+    res["real"] = dict(static_frac=float(ts_r[:, 0].mean()), moving_change=float(ts_r[:, 1].mean()))
+    # B vs A directly: can a classifier tell shared-noise samples from normal ones?
+    res["A_vs_B_c2st"] = float(np.mean([c2st(sets["A"], sets["B"], s) for s in range(3)]))
+    print(res, flush=True)
+    json.dump(res, open("results/r3_shared_noise_quality.json", "w"), indent=1)
+

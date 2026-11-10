@@ -82,3 +82,50 @@ zero with 6-19 clips each. PVS is the only feature with a consistent sign across
 same-generator pairs (several samples per prompt per model) with glitch votes, or human
 labels on our own clips. Both need downloads or people, so neither is possible overnight.
 Park detection; switch to the speed direction (R3), which can be tested offline.
+
+## R3. Does shared noise, which exact frame sharing requires, hurt sample quality?
+
+**Run.** 400 samples per method from the tiny model (same noise seeds), compared with 400
+real clips. Metrics: FD-rand (Frechet distance on features from 5 fixed random 3D-conv
+nets; a toy stand-in for FVD; real-vs-real floor 5e-6), the share of static pixels, the mean
+change of moving pixels, and jerk (temporal 2nd difference) of moving pixels. A classifier
+two-sample test saturated (normal samples already 97% detectable, because the model is weak),
+so FD-rand and the temporal statistics are the main metrics.
+
+| Method | Speedup | FD-rand | Static share | Moving jerk |
+| --- | --- | --- | --- | --- |
+| real (vs real) | - | 0.000005 | 0.81 | 0.069 |
+| normal 20 steps | 1x | 0.000056 | 0.55 | 0.112 |
+| **shared noise** (B5b / frame sharing) | 2.4x | **0.00151** | 0.74 | **0.242** |
+| shared noise + shared compute | 2.4x | 0.00157 | 0.74 | 0.245 |
+| own noise, leader input = own state | 2.4x | 0.00157 | 0.74 | 0.245 |
+| **averaged sharing** (own noise, leader input = mean of copies) | 2.4x | **0.00035** | 0.77 | 0.158 |
+| averaged sharing, thr 0.06 | 3.7x | 0.00024 | 0.91 | 0.182 |
+| normal 10 / 8 / 6 / 5 steps | 2 / 2.5 / 3.3 / 4x | 0.00019 / 0.00026 / 0.00035 / 0.00043 | ~0.59 | 0.10-0.07 |
+| 10 steps + averaged sharing | 3.9x | 0.000044 | 0.77 | 0.127 |
+| 10 steps + averaged sharing, thr 0.06 | 5.3x | 0.000038 | 0.91 | 0.153 |
+
+**Observations.**
+1. **Shared noise hurts badly:** 27x worse FD, 2x jerkier moving regions, and visible
+   saturated blocks. The frame-sharing speed result (B5b) was exact *relative to same-noise
+   full compute*, but same-noise full compute is itself a poor sample.
+2. **Mechanism.** The model denoises static backgrounds by pooling independent noisy views
+   across frames. Shared noise removes that redundancy, so noise is "agreed on" by every frame
+   and baked in as content. Evidence: giving copies their own noise while computing the leader
+   from its own state alone changes nothing (identical FD 0.00157); averaging the copies'
+   states into the leader's input recovers most of the loss (0.00035).
+3. **Averaged sharing** keeps the compute saving of frame sharing without the shared-noise
+   failure. Fidelity to normal full compute is about 22-23 dB, i.e. a nearby sample, not an
+   exact reproduction.
+4. **Anomaly, not yet trusted.** 10 steps + averaged sharing scores *better* than 20-step full
+   compute (FD 0.000044 vs 0.000056), consistently on all 5 feature seeds, while 20-step
+   averaged sharing scores worse (0.00035). The likely explanation is that FD-rand rewards
+   removing the weak model's background flicker (static share 0.55 vs 0.81 real). The
+   non-monotonic step dependence is unexplained. Visually the three sets look alike.
+   **Not a claim yet.**
+
+**Decision.** The toy model is too weak for quality claims (its samples are 97% detectable).
+Train it much longer, about 3.5x more steps, then re-run the quality battery (normal, fewer
+steps, shared noise, averaged sharing) on the better model. If averaged sharing still beats
+fewer steps at matched speedup on a model whose samples are closer to real, that is a real
+result.

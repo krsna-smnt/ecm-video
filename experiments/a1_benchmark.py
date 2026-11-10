@@ -66,6 +66,8 @@ thr = np.percentile(x[y == 1], 20)
 summary["fpr_at_tpr80"] = {e: float(np.mean([r["pvs_peak"] >= thr for r in rows if r["event"] == e])) for e in LEGAL}
 vrows = [r for r in rows if r["label"]]
 summary["frame_hit_rate"] = float(np.mean([r["frame_hit"] for r in vrows]))
+# boil's event window covers most of the clip, so its hits are nearly automatic (review note)
+summary["frame_hit_rate_excl_boil"] = float(np.mean([r["frame_hit"] for r in vrows if r["event"] != "boil"]))
 summary["loc_frac_mean"] = float(np.mean([r["loc_frac"] for r in vrows]))
 summary["region_frac_mean"] = float(np.mean([r["region_frac"] for r in vrows]))
 summary["loc_by_type"] = {v: float(np.mean([r["loc_frac"] for r in vrows if r["event"] == v])) for v in VIOLATIONS}

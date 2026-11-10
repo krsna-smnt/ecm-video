@@ -27,6 +27,14 @@ so you only pay for the next step if the previous one worked.
 5. Upgrade the flow from Farneback to RAFT (`torchvision.models.optical_flow.raft_large`)
    and re-run; it should only get better.
 
+## Step 1b: does shared noise hurt quality? (the key open question), a few GPU-hours
+
+Frame sharing (FINDINGS section 2) needs the static background to start from the same noise in
+every frame. Generate the same prompts (static-camera scenes) twice, once with normal noise and
+once with noise shared in static regions (static map from a 2-3 step draft pass). Compare them by
+human preference, FVD and PVS. **Go/no-go:** no visible loss. If quality drops, try sharing only
+from the middle of sampling, or sharing the low-frequency part of the noise only.
+
 ## Step 2: settling on the real model (B1), a few GPU-hours
 
 Use the pipeline's per-step callback (`callback_on_step_end`) to save the latents at every
@@ -46,7 +54,10 @@ entirely and copy their outputs from a leader token. `ecm/tinydit.py` is the ref
 implementation of both, with a FLOP counter; port the same logic. Measure wall-clock
 with `torch.cuda.synchronize()` and peak memory with `torch.cuda.max_memory_allocated()`.
 
-**Go/no-go (the main gate):** oracle temporal sharing on static-camera prompts reaches
+Port proportional attention too (log(copies) bias on each shared key); without it, sharing
+fails on the toy (20 dB vs 43.6 dB).
+
+**Go/no-go (the main gate):** draft-pass temporal sharing on static-camera prompts reaches
 3x or more wall-clock at a quality loss you would accept (FVD and PVS, plus your eyes).
 
 ## Step 4: online methods (B4, C1)

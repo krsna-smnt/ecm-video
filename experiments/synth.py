@@ -88,12 +88,14 @@ def make_clip(event: str, rng, T: int = 16, H: int = 128, W: int = 128, pan: boo
         mid = p0 + v * (T / 2) + size / 2 - osz / 2
         occluder = (opatch, omask, mid)
         p0 = p0 - v * 2           # make sure it fully passes behind
-    if event == "exit":
-        p0 = np.array([W / 2 - size / 2, H / 2 - size / 2])
-        v = v / np.linalg.norm(v) * 4.0     # fast enough to leave the frame
-    if event == "enter":
-        v = v / np.linalg.norm(v) * 4.0
-        p0 = np.array([W / 2 - size / 2, H / 2 - size / 2]) - v * (T - 2)
+    if event in ("exit", "enter"):
+        # v2: fast enough to FULLY leave (exit) / arrive from fully outside (enter) the frame.
+        # Distance from the centre to fully outside along direction u is (W/2 + size)/max(|ux|,|uy|).
+        u = v / np.linalg.norm(v)
+        dist = (W / 2 + size + 2) / max(abs(u[0]), abs(u[1]))
+        v = u * dist / (T - 5)
+        centre = np.array([W / 2 - size / 2, H / 2 - size / 2])
+        p0 = centre if event == "exit" else centre - v * (T - 3)
 
     swap_patch = contrast_patch(size, bg_mean, rng)
     light_dir = rng.choice([-1.0, 1.0]) if event == "light" else 0.0

@@ -56,7 +56,7 @@ def psnr(a, b):
 
 
 # ---------------------------------------------------------------- samplers
-def sample(model, x0, n_steps=N_STEPS, policy=None, keep=None, share_src=None, attn_mask_fn=None):
+def sample(model, x0, n_steps=N_STEPS, policy=None, keep=None, share_src=None, attn_mask_fn=None, prop_attn=False):
     """Euler rectified-flow sampler for ONE clip (batch 1).
 
     policy(k, xhat_prev, xhat_now, temp) -> LongTensor of token positions to recompute
@@ -69,20 +69,25 @@ def sample(model, x0, n_steps=N_STEPS, policy=None, keep=None, share_src=None, a
     if share_src is not None:
         x = x[:, share_src]                       # shared tokens start from their leader's noise
     n = model.N if keep is None else len(keep)
+    kb = None
+    if prop_attn and keep is not None:      # each kept token stands for this many copies
+        mult = torch.bincount(inv_index(keep, share_src), minlength=n).float()
+        kb = torch.log(mult)
     vel = torch.zeros(1, n, x.shape[-1]); caches = None
     flops = 0; hist = []; counts = []
-    prev_xhat = None
+    kh = []          # predicted clean tokens (kept sequence) after each step
     for k in range(n_steps):
         tval = k / n_steps
         t = torch.full((1,), tval)
         xs = x if keep is None else x[:, keep]
-        q = None if (policy is None or caches is None) else policy(k, prev_xhat, xs + (1 - tval) * vel, 1 - tval)
+        q = None if (policy is None or caches is None) else \
+            policy(k, kh[-2] if len(kh) >= 2 else None, kh[-1] if kh else None, 1 - tval)
         if q is not None and len(q) == n:
             q = None
         if q is not None and len(q) == 0:
             v_new = None
         else:
-            v_new, caches = model(x, t, q_idx=q, caches=caches, keep=keep) if attn_mask_fn is None \
+            v_new, caches = model(x, t, q_idx=q, caches=caches, keep=keep, key_bias=kb) if attn_mask_fn is None \
                 else masked_forward(model, x, t, attn_mask_fn)
         if v_new is not None:
             if q is None:
@@ -94,7 +99,7 @@ def sample(model, x0, n_steps=N_STEPS, policy=None, keep=None, share_src=None, a
         full_vel = vel if keep is None else vel[:, inv_index(keep, share_src)]
         xhat = x + (1 - tval) * full_vel
         hist.append(xhat[0].clone())
-        prev_xhat = (xhat if keep is None else xhat[:, keep])
+        kh.append(xhat if keep is None else xhat[:, keep])
         x = x + full_vel / n_steps
     return x, flops, hist, counts
 
@@ -196,7 +201,7 @@ def run(n_clips=24):
         x0 = torch.randn(1, model.N, model.P ** 2, generator=g)
         xf, _, hist, _ = sample(model, x0)
         vid = model.unpatchify(xf)[0].numpy()
-        clips.append(dict(x0=x0, ref=xf, vid=vid, hist=hist,
+        clips.append(dict(i=i, x0=x0, ref=xf, vid=vid, hist=hist,
                           dens=token_density(model, vid), act=token_activity(model, vid)))
     print(f"references: {time.time() - t0:.0f}s", flush=True)
 
@@ -222,23 +227,30 @@ def run(n_clips=24):
         few_step_settle_hist=np.bincount(few, minlength=5).tolist())
     print("B1", res["B1"], flush=True)
 
-    def evaluate(make_policy=None, make_share=None, n_eval=n_clips, steps=N_STEPS):
-        ps, fl, pv, proj = [], [], [], []
+    def evaluate(make_policy=None, make_share=None, n_eval=n_clips, steps=N_STEPS, prop=False):
+        """make_share(c) -> (keep, share_src, x0, reference video) for oracle sharing runs."""
+        ps, fl, pv, pref, proj = [], [], [], [], []
         for c in clips[:n_eval]:
             keep = share = None
+            x0, ref = c["x0"], c["vid"]
             if make_share is not None:
-                keep, share = make_share(c)
+                keep, share, x0, ref = make_share(c)
             pol = None if make_policy is None else make_policy(c)
-            xf, f, _, counts = sample(model, c["x0"], steps, policy=pol, keep=keep, share_src=share)
+            xf, f, _, counts = sample(model, x0, steps, policy=pol, keep=keep, share_src=share, prop_attn=prop)
             v = model.unpatchify(xf)[0].numpy()
-            ps.append(psnr(v, c["vid"])); fl.append(f); pv.append(pvs_of(v))
+            ps.append(psnr(v, ref)); fl.append(f); pv.append(pvs_of(v)); pref.append(pvs_of(ref))
             seq_frac = (model.N if keep is None else len(keep)) / model.N
             proj.append(projected_speedup(seq_frac, [q / (seq_frac * model.N) for q in counts]))
         return dict(psnr=float(np.mean(ps)), psnr_min=float(np.min(ps)),
                     speedup=float(full_flops / np.mean(fl)), projected_speedup_real_scale=float(np.mean(proj)),
-                    pvs=float(np.mean(pv)))
+                    pvs=float(np.mean(pv)), pvs_of_reference=float(np.mean(pref)))
 
     ref_pvs = float(np.mean([pvs_of(c["vid"]) for c in clips]))
+    cal = {}
+    for n2 in (10, 40):
+        cal[f"psnr_20_vs_{n2}_steps"] = float(np.mean([psnr(model.unpatchify(sample(model, c["x0"], n2)[0])[0].numpy(), c["vid"]) for c in clips]))
+    res["calibration"] = cal
+    print("calibration", cal, flush=True)
     res["ref_pvs"] = ref_pvs
 
     # ---- B2 oracle spatial pruning vs random, warmup 25% of steps full
@@ -266,43 +278,67 @@ def run(n_clips=24):
         print("B2", r, flush=True)
 
     # ---- B3 oracle temporal sharing of static tokens across k-frame groups
+    # Two-stage oracle (review fix): sharing changes the starting noise, hence the video.
+    # 1) static map from the original reference, 2) build the shared noise and generate the
+    # FULL-compute reference from it, 3) share only positions static in BOTH videos.
+    # Reference and test then start from identical noise, and the map is a true oracle
+    # for the video being compared.
     res["B3"] = []
     g2 = model.g ** 2
+    _oc = {}
+
+    def build_src(stat_pos, k_grp):
+        src = np.arange(model.N)
+        for tf in range(model.T):
+            lead = (tf // k_grp) * k_grp
+            for p in np.where(stat_pos)[0]:
+                src[tf * g2 + p] = lead * g2 + p
+        return src
+
+    def oracle_share(ci, k_grp, thr):
+        key = (ci, k_grp, thr)
+        if key not in _oc:
+            c = clips[ci]
+            stat1 = c["act"][:g2] < thr
+            x0s = c["x0"][:, torch.from_numpy(build_src(stat1, k_grp))]
+            xr, _, _, _ = sample(model, x0s)
+            vid_s = model.unpatchify(xr)[0].numpy()
+            act_s = token_activity(model, vid_s)
+            stat = stat1 & (act_s[:g2] < thr)
+            src = build_src(stat, k_grp)
+            _oc[key] = dict(keep=torch.from_numpy(np.unique(src)), src=torch.from_numpy(src), x0=x0s, ref=vid_s,
+                            dens=token_density(model, vid_s), act=act_s, frac=float(stat.mean()),
+                            agree=float(((act_s[:g2] < thr) == stat1).mean()))
+        return _oc[key]
+
     for k_grp in [2, 4, 8]:
         for thr in [0.03, 0.06]:
             def mk_share(c, k_grp=k_grp, thr=thr):
-                stat_pos = c["act"][:g2] < thr                     # per spatial position
-                src = np.arange(model.N)
-                for tf in range(model.T):
-                    lead = (tf // k_grp) * k_grp
-                    for p in np.where(stat_pos)[0]:
-                        src[tf * g2 + p] = lead * g2 + p
-                keep = np.unique(src)
-                return torch.from_numpy(keep), torch.from_numpy(src)
+                o = oracle_share(c["i"], k_grp, thr)
+                return o["keep"], o["src"], o["x0"], o["ref"]
             r = evaluate(make_share=mk_share)
-            fr = np.mean([(clips[j]["act"][:g2] < thr).mean() for j in range(n_clips)])
-            r.update(group=k_grp, static_thr=thr, static_frac=float(fr)); res["B3"].append(r)
+            rp = evaluate(make_share=mk_share, prop=True)
+            r["prop_attn"] = dict(psnr=rp["psnr"], psnr_min=rp["psnr_min"], pvs=rp["pvs"])
+            os_ = [oracle_share(j, k_grp, thr) for j in range(n_clips)]
+            r.update(group=k_grp, static_thr=thr, static_frac=float(np.mean([o["frac"] for o in os_])),
+                     map_agreement=float(np.mean([o["agree"] for o in os_]))); res["B3"].append(r)
             print("B3", r, flush=True)
 
-    # ---- B3 + B2 combined: share static tokens, and cache the low-density remainder
+    # ---- B3 + B2 combined: share static tokens (group 2), cache the low-score remainder
     res["B3+B2"] = []
     for p in [0.5, 0.3]:
         def mk_share(c):
-            stat_pos = c["act"][:g2] < 0.03
-            src = np.arange(model.N)
-            for tf in range(model.T):
-                for q in np.where(stat_pos)[0]:
-                    src[tf * g2 + q] = q
-            keep = np.unique(src)
-            return torch.from_numpy(keep), torch.from_numpy(src)
+            o = oracle_share(c["i"], 2, 0.06)
+            return o["keep"], o["src"], o["x0"], o["ref"]
 
         def mk(c, p=p):
-            keep, _ = mk_share(c)
-            score = (c["dens"] / c["dens"].max() + c["act"] / max(c["act"].max(), 1e-6))[keep.numpy()]
-            nq = int(p * len(keep))
-            idx = torch.from_numpy(np.argsort(-score)[:nq].copy())
+            o = oracle_share(c["i"], 2, 0.06)
+            score = (o["dens"] / o["dens"].max() + o["act"] / max(o["act"].max(), 1e-6))[o["keep"].numpy()]
+            idx = torch.from_numpy(np.argsort(-score)[:int(p * len(o["keep"]))].copy())
             return lambda k, a, b, temp: None if k < warm else idx
-        r = evaluate(mk, mk_share); r.update(keep_frac_of_remaining=p); res["B3+B2"].append(r)
+        r = evaluate(mk, mk_share); rp = evaluate(mk, mk_share, prop=True)
+        r["prop_attn"] = dict(psnr=rp["psnr"], psnr_min=rp["psnr_min"], pvs=rp["pvs"])
+        r.update(group=2, static_thr=0.06, keep_frac_of_remaining=p); res["B3+B2"].append(r)
         print("B3+B2", r, flush=True)
 
     # ---- B4 online freezing (no oracle): 'delta' vs 'heat' rule
@@ -322,6 +358,25 @@ def run(n_clips=24):
                 return pol
             r = evaluate(mk); r.update(rule=rule, tau=tau); res["B4"].append(r)
             print("B4", r, flush=True)
+
+    # ---- baseline: just use fewer steps; and freezing stacked on 10 steps
+    res["fewer_steps_baseline"] = {}
+    for n2 in [14, 10, 7, 5, 4, 3]:
+        ps = [psnr(model.unpatchify(sample(model, c["x0"], n2)[0])[0].numpy(), c["vid"]) for c in clips]
+        res["fewer_steps_baseline"][str(n2)] = dict(speedup=N_STEPS / n2, psnr=float(np.mean(ps)))
+    for tau in [0.005, 0.01]:
+        def mk(c, tau=tau):
+            frozen = torch.zeros(model.N, dtype=torch.bool)
+
+            def pol(k, prev, now, temp):
+                if k < 2 or prev is None:
+                    return None
+                frozen[:] = frozen | (((now[0] - prev[0]).pow(2).mean(-1).sqrt() * temp) < tau)
+                return torch.where(~frozen)[0]
+            return pol
+        r = evaluate(mk, steps=10)
+        res["fewer_steps_baseline"][f"10steps+heat{tau}"] = dict(speedup=r["speedup"], psnr=r["psnr"])
+    print("fewer steps", res["fewer_steps_baseline"], flush=True)
 
     # ---- H heat conduction: attention mass between static and moving tokens
     cond = []

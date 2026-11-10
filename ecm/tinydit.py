@@ -25,7 +25,7 @@ class Block(nn.Module):
         self.mlp = nn.Sequential(nn.Linear(d, 4 * d), nn.GELU(), nn.Linear(4 * d, d))
         self.ada = nn.Linear(d, 4 * d)   # time-conditioned scale/shift for both norms
 
-    def forward(self, x, temb, q_idx=None, kv_cache=None):
+    def forward(self, x, temb, q_idx=None, kv_cache=None, key_bias=None):
         """x: B x n x d hidden states of the tokens being computed (all, or the query subset).
         q_idx: LongTensor of positions (in the full sequence) of x's tokens, or None = all.
         kv_cache: (K, V) for the FULL sequence from the last time each token was computed;
@@ -42,7 +42,9 @@ class Block(nn.Module):
         else:
             K, V = k, v
         split = lambda t: t.view(B, -1, self.h, d // self.h).transpose(1, 2)
-        a = F.scaled_dot_product_attention(split(q), split(K), split(V))
+        # key_bias: additive log-multiplicity per key (proportional attention for merged/shared tokens)
+        mask = None if key_bias is None else key_bias.view(1, 1, 1, -1).to(q.dtype)
+        a = F.scaled_dot_product_attention(split(q), split(K), split(V), attn_mask=mask)
         a = a.transpose(1, 2).reshape(B, n, d)
         x = x + self.o(a)
         x = x + self.mlp(self.n2(x) * (1 + s2) + b2)
@@ -81,7 +83,7 @@ class TinyVideoDiT(nn.Module):
     def pos(self):
         return (self.pos_t + self.pos_s).reshape(self.N, self.d)
 
-    def forward(self, xt_tok, t, q_idx=None, caches=None, keep=None):
+    def forward(self, xt_tok, t, q_idx=None, caches=None, keep=None, key_bias=None):
         """xt_tok: B x N x P*P noisy tokens. Returns velocity for computed tokens.
 
         keep:  LongTensor of token positions kept in the sequence (others removed); None = all.
@@ -97,7 +99,7 @@ class TinyVideoDiT(nn.Module):
             h = h[:, q_idx]
         new = []
         for i, blk in enumerate(self.blocks):
-            h, kv = blk(h, temb, q_idx, None if caches is None else caches[i])
+            h, kv = blk(h, temb, q_idx, None if caches is None else caches[i], key_bias)
             new.append(kv)
         return self.out(self.nf(h)), new
 

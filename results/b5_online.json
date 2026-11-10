@@ -1,0 +1,93 @@
+{
+ "w4_thr0.005": {
+  "warm_steps": 4,
+  "thr": 0.005,
+  "psnr": 99.0,
+  "psnr_min": 99.0,
+  "speedup": 1.0,
+  "projected_speedup_real_scale": 1.0,
+  "static_frac": 0.0,
+  "pvs": 0.702060635201633
+ },
+ "w4_thr0.01": {
+  "warm_steps": 4,
+  "thr": 0.01,
+  "psnr": 99.0,
+  "psnr_min": 99.0,
+  "speedup": 1.0,
+  "projected_speedup_real_scale": 1.0,
+  "static_frac": 0.0,
+  "pvs": 0.702060635201633
+ },
+ "w4_thr0.02": {
+  "warm_steps": 4,
+  "thr": 0.02,
+  "psnr": 26.905619740730327,
+  "psnr_min": 18.492955241159745,
+  "speedup": 1.2431205147798268,
+  "projected_speedup_real_scale": 1.405097732613865,
+  "static_frac": 0.23958333333333334,
+  "pvs": 0.7551895713744065
+ },
+ "w6_thr0.005": {
+  "warm_steps": 6,
+  "thr": 0.005,
+  "psnr": 99.0,
+  "psnr_min": 99.0,
+  "speedup": 1.0,
+  "projected_speedup_real_scale": 1.0,
+  "static_frac": 0.0,
+  "pvs": 0.702060635201633
+ },
+ "w6_thr0.01": {
+  "warm_steps": 6,
+  "thr": 0.01,
+  "psnr": 99.0,
+  "psnr_min": 99.0,
+  "speedup": 1.0,
+  "projected_speedup_real_scale": 1.0,
+  "static_frac": 0.0,
+  "pvs": 0.702060635201633
+ },
+ "w6_thr0.02": {
+  "warm_steps": 6,
+  "thr": 0.02,
+  "psnr": 29.724908175670038,
+  "psnr_min": 17.02411319127828,
+  "speedup": 1.3515731804968036,
+  "projected_speedup_real_scale": 1.570144138150179,
+  "static_frac": 0.3697916666666667,
+  "pvs": 1.0760336571062605
+ },
+ "w8_thr0.005": {
+  "warm_steps": 8,
+  "thr": 0.005,
+  "psnr": 99.0,
+  "psnr_min": 99.0,
+  "speedup": 1.0,
+  "projected_speedup_real_scale": 1.0,
+  "static_frac": 0.0,
+  "pvs": 0.702060635201633
+ },
+ "w8_thr0.01": {
+  "warm_steps": 8,
+  "thr": 0.01,
+  "psnr": 96.37980882104937,
+  "psnr_min": 36.11541170518483,
+  "speedup": 1.0016083557092959,
+  "projected_speedup_real_scale": 1.0025537491505465,
+  "static_frac": 0.0026041666666666665,
+  "pvs": 0.7027759368841847
+ },
+ "w8_thr0.02": {
+  "warm_steps": 8,
+  "thr": 0.02,
+  "psnr": 24.201874495501396,
+  "psnr_min": 20.487032424126465,
+  "speedup": 1.3875725981242502,
+  "projected_speedup_real_scale": 1.594938921303796,
+  "static_frac": 0.4765625,
+  "pvs": 1.3249125070869923
+ },
+ "ref_pvs": 0.702060635201633
+}

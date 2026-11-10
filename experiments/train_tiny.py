@@ -13,10 +13,11 @@ torch.manual_seed(0)
 budget = float(sys.argv[1]) * 60 if len(sys.argv) > 1 else 540
 total = int(sys.argv[2]) if len(sys.argv) > 2 else 6000
 ck = os.environ.get("CKPT", "results/tiny_ckpt.pt")
-data_path = "results/tiny_data.npz"
+data_path = os.environ.get("DATA", "results/tiny_data.npz")
+PAN = float(os.environ.get("PAN", 0.0))
 
 if not os.path.exists(data_path):
-    np.savez_compressed(data_path, x=make_dataset(12000, seed=0))
+    np.savez_compressed(data_path, x=make_dataset(12000, seed=0 if PAN == 0 else 11, pan_prob=PAN))
 X = torch.from_numpy(np.load(data_path)["x"])
 
 import os as _os

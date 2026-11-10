@@ -24,16 +24,29 @@ m = R.model; g2 = m.g ** 2
 N = int(os.environ.get("NSAMP", 400))
 SEED0 = int(os.environ.get("SEED0", 30_000))          # noise seed offset (confirmation runs use a fresh one)
 ONLY = os.environ.get("ONLY")                         # comma-separated subset of methods
-real = make_dataset(N, seed=int(os.environ.get("REALSEED", 4321)))
+PANREAL = float(os.environ.get("PANREAL", 0.0))       # R5: real set with camera pans mixed in
+real = make_dataset(N, seed=int(os.environ.get("REALSEED", 4321)), pan_prob=PANREAL)
 tag = os.path.basename(os.environ.get("CKPT", "results/tiny_ckpt.pt")).replace(".pt", "") + os.environ.get("TAG", "")
 
 
 SHARED_FRAC = {}
 
 
+PANGATE = float(os.environ.get("PANGATE", 0))   # R5: disable sharing when the draft shows camera motion (px/frame)
+
+
 def shared_map(x0, thr):
     draft = m.unpatchify(E.sample(m, x0, n_steps=2)[0])[0].numpy()
     stat = E.token_activity(m, draft)[:g2] < thr
+    if PANGATE > 0:
+        import cv2
+        if os.environ.get("PANGATE_MODE", "consecutive") == "long":   # first-to-last frame, per-frame rate
+            gmo = np.hypot(*cv2.phaseCorrelate(draft[0].astype(np.float64), draft[-1].astype(np.float64))[0]) / (m.T - 1)
+        else:
+            gmo = np.median([np.hypot(*cv2.phaseCorrelate(draft[t].astype(np.float64), draft[t + 1].astype(np.float64))[0])
+                             for t in range(m.T - 1)])
+        if gmo > PANGATE:
+            stat[:] = False                       # the whole background is advecting: nothing is static
     src = np.arange(m.N)
     for tf in range(m.T):
         for p in np.where(stat)[0]:
@@ -83,9 +96,9 @@ for s in [20, 10]:
 OUTF = f"results/r3f_battery_{tag}.json"
 out = json.load(open(OUTF)) if os.path.exists(OUTF) else {"ckpt": tag, "n": N}
 full = m.flops(m.N) * 20
-fd_floor = out.get("real_vs_real_FD") or float(np.mean([fd(feats(real, s), feats(make_dataset(N, seed=8765), s)) for s in range(5)]))
+fd_floor = out.get("real_vs_real_FD") or float(np.mean([fd(feats(real, s), feats(make_dataset(N, seed=8765, pan_prob=PANREAL), s)) for s in range(5)]))
 out["real_vs_real_FD"] = fd_floor
-out["meta"] = dict(SEED0=SEED0, REALSEED=int(os.environ.get("REALSEED", 4321)), N=N, renoise_seed="per clip (fixed)")
+out["meta"] = dict(PANGATE_MODE=os.environ.get("PANGATE_MODE", "consecutive"), PANGATE=PANGATE, PANREAL=PANREAL, SEED0=SEED0, REALSEED=int(os.environ.get("REALSEED", 4321)), N=N, renoise_seed="per clip (fixed)")
 out.setdefault("real_physics", physics(real))
 t0 = time.time()
 for name, fn in METHODS.items():

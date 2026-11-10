@@ -335,3 +335,43 @@ numbers are kept in the JSONs under `superseded_constant_renoise_seed`.
    C2ST 0.93). Decisions rest on agreement across metrics, never on FD alone.
 6. Thresholds were chosen on set 1; set 2 (different noise and a different real set) is a
    genuine holdout.
+
+## R5. Camera motion: frame sharing freezes pans unless it is gated
+
+**Setup.** The 42k model was fine-tuned for 8k steps on a 50/50 mix of static-camera and
+panning clips (0.4-1.2 px/frame over smooth backgrounds). The real set has the same mix. The
+toy-physics checker assumes a static background, so R5 uses FD, C2ST and global camera motion
+(phase correlation, px/frame).
+
+**Failure found.** Ungated re-noised sharing still beats fewer steps on FD and C2ST (2.8x: FD
+0.00011, C2ST 0.71, vs normal 8 at 2.5x: 0.00044, 0.79), but it **halves camera motion** on
+clear pans (0.60 to 0.31 px/frame). Slow pans over smooth backgrounds pass the per-patch static
+test, so the moving background is frozen. Adaptivity is weak: the Spearman correlation of
+motion vs shared fraction is -0.21.
+
+**Fix: a camera-motion gate.** Estimate global motion in the 2-step draft and disable sharing
+for the clip if the camera moves.
+- A consecutive-frame gate fires on almost every clip, because 2-step drafts are too noisy
+  for frame-to-frame phase correlation (20 steps fall to 1.03x).
+- A long-baseline gate (frame 0 to frame 7 displacement / 7, threshold 0.15 px/frame) preserves
+  pans (0.57 vs 0.60) and keeps some sharing:
+
+| Pan model, mixed real set | Speedup | FD | C2ST | Pans preserved |
+| --- | --- | --- | --- | --- |
+| normal 20 | 1.0x | 0.000131 | 0.66 | yes |
+| normal 10 | 2.0x | 0.000340 | 0.75 | yes |
+| normal 8 | 2.5x | 0.000442 | 0.79 | yes |
+| 10 steps + gated sharing, thr 0.02 | 2.1x | 0.000136 | 0.61 | yes (0.57/0.60) |
+| 10 steps + ungated sharing, thr 0.02 | 4.3x | 0.000082 | 0.74 | **no** (motion halved) |
+| 20 steps + gated sharing | 1.2x | 0.000034 | 0.57 | yes |
+
+**Observations.**
+1. The method's speedup is content-dependent, as it should be. On static-camera content it is
+   2.4-3.9x measured (4.3-6x projected); with a moving camera, honest gating leaves about 2x
+   (mostly from the fewer steps it stacks with).
+2. Even gated, sharing plus 10 steps beats plain 10 steps at the same speed (FD 2.5x better,
+   C2ST 0.61 vs 0.75).
+3. The proper fix is Lagrangian sharing: copy tokens *along* the estimated camera motion
+   instead of freezing them. That is the ECM idea of advection made literal. Not attempted
+   tonight, because patch-grid shifts need either integer-patch motion or interpolation in
+   token space.

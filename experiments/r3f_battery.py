@@ -42,14 +42,15 @@ def shared_map(x0, thr):
     return src, torch.from_numpy(np.unique(src.numpy()))
 
 
-def avg_sample(x0, steps, thr, renoise=False, seed=0):
+def avg_sample(x0, steps, thr, renoise=False, seed=0, prop=True, average=True):
     src, keep = shared_map(x0, thr)
-    inv = E.inv_index(keep, src); mult = torch.bincount(inv, minlength=len(keep)).float(); kb = torch.log(mult)
+    inv = E.inv_index(keep, src); mult = torch.bincount(inv, minlength=len(keep)).float()
+    kb = torch.log(mult) if prop else torch.zeros_like(mult)
     x = x0.clone(); g = torch.Generator().manual_seed(seed); flops = m.flops(m.N) * 2
     for k in range(steps):
         t = k / steps
-        z = torch.zeros(1, len(keep), x.shape[-1]).index_add_(1, inv, x) / mult[None, :, None]
-        if renoise:   # restore per-token noise std (1-t): add (1-t)*sqrt(1-1/m) fresh noise
+        z = (torch.zeros(1, len(keep), x.shape[-1]).index_add_(1, inv, x) / mult[None, :, None]) if average else x[:, keep]
+        if renoise and average:   # restore per-token noise std (1-t): add (1-t)*sqrt(1-1/m) fresh noise
             z = z + (1 - t) * torch.sqrt(1 - 1 / mult)[None, :, None] * torch.randn(z.shape, generator=g)
         v = R.run_kept(z, torch.full((1,), t), kb, keep); flops += m.flops(len(keep))
         x1 = (z + (1 - t) * v)[:, inv]
@@ -69,6 +70,9 @@ for s in [20, 10]:
     for thr in [0.03, 0.06]:
         METHODS[f"avg_{s}_thr{thr}"] = lambda x0, s=s, thr=thr: avg_sample(x0, s, thr)
     METHODS[f"avg_renoise_{s}_thr0.03"] = lambda x0, s=s: avg_sample(x0, s, 0.03, renoise=True)
+    METHODS[f"ablate_noRenoise_{s}_thr0.02"] = lambda x0, s=s: avg_sample(x0, s, 0.02)
+    METHODS[f"ablate_noPropAttn_{s}_thr0.02"] = lambda x0, s=s: avg_sample(x0, s, 0.02, renoise=True, prop=False)
+    METHODS[f"ablate_noAverage_{s}_thr0.02"] = lambda x0, s=s: avg_sample(x0, s, 0.02, renoise=True, average=False)
     for thr in [0.01, 0.015, 0.02]:   # added after the 42k run showed over-sharing at 0.03
         METHODS[f"avg_renoise_{s}_thr{thr}"] = lambda x0, s=s, thr=thr: avg_sample(x0, s, thr, renoise=True)
 

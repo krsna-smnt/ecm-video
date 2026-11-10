@@ -251,3 +251,26 @@ redundancy (what the model does internally), and re-noising keeps the input in-d
 **Caveats.** Tiny model (1.1M parameters), synthetic static-camera toy world, 32x32, 8 frames;
 FLOP speedups measured, real-scale speedups projected; thresholds swept on seed set 1 and
 then confirmed on seed set 2 (the confirmation used the thresholds picked on set 1).
+
+## R3g. Ablations of re-noised averaged frame sharing (42k model, 2.4x, thr 0.02, seed set 1)
+
+| Variant | FD | C2ST | Valid | Area drift |
+| --- | --- | --- | --- | --- |
+| full method | 0.000123 | 0.67 | 0.18 | 1.03 |
+| no re-noising (plain averaging) | 0.000841 | 0.69 | 0.15 | 1.19 |
+| no proportional attention (no log m bias) | 0.000070 | 0.79 | 0.06 | 1.16 |
+| no averaging (re-noise the leader's own state) | 0.00153 | 0.96 | 0.27 | 0.91 |
+
+**Observations.**
+- Each component protects a different aspect of quality, and only the full method is good on
+  all four metrics.
+- Without averaging, the result is the shared-noise failure (C2ST 0.96). The frozen
+  background still makes objects easier to track (valid 0.27): the appearance/physics split
+  again.
+- Proportional attention is what keeps object permanence (valid 0.06 without it): with one
+  token standing for 8 copies, moving tokens otherwise under-attend to the background.
+- Re-noising mostly fixes FD and area drift.
+- FD alone would prefer "no proportional attention" (0.000070, even below normal 20-step).
+  FD-rand is not trustworthy alone; decisions should rest on agreement across metrics.
+
+An independent automated review of the R3 code has been launched; results go below.

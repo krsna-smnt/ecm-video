@@ -133,3 +133,11 @@ Pika 2.2, Luma Ray 2, Sora, Veo 2, Veo 3 and Wan 2.1. Scored with `--stride 2` (
      deforming regions.
   4. Per-clip human melting labels (T6), without which a high score cannot be called right
      or wrong.
+
+## 6. Overnight research (10-11 Nov): see MORNING_SUMMARY.md and RESEARCH_LOG.md
+
+- PVS vs human glitch votes on real AI video: anti-correlated (corrected sign), and
+  generator-confounded. Detection is parked.
+- Shared noise, which exact frame sharing requires, hurts quality. **Re-noised averaged frame
+  sharing** fixes it, and beats fewer steps at matched speed on four metrics and two seed sets
+  (toy model). It freezes camera pans unless gated.

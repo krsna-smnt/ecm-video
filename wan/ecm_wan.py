@@ -61,21 +61,30 @@ def self_attn(attn, h, rope, key_bias):
     q, k = attn.norm_q(q), attn.norm_k(k)
     q, k, v = (t.unflatten(2, (attn.heads, -1)) for t in (q, k, v))
     q, k = _rope(q, *rope), _rope(k, *rope)
-    mask = None if key_bias is None else key_bias.to(q.dtype)[:, None, None, :]
-    o = F.scaled_dot_product_attention(q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), attn_mask=mask)
-    o = o.transpose(1, 2).flatten(2, 3).type_as(q)
+    D = q.shape[-1]
+    if key_bias is not None:
+        # Exact, mask-free additive key bias: append 8 channels; q gets 1 in the first, k gets
+        # bias*sqrt(D), so with scale 1/sqrt(D) the logit gains exactly `bias`. A float attn_mask
+        # would push SDPA onto kernels that materialise the full L x L matrix (~9 GB here).
+        B, L, H, _ = q.shape
+        qe = q.new_zeros(B, L, H, 8); qe[..., 0] = 1
+        ke = k.new_zeros(k.shape[0], k.shape[1], H, 8)
+        ke[..., 0] = (key_bias.to(torch.float32) * math.sqrt(D)).to(k.dtype)[:, :, None]
+        q, k, v = torch.cat([q, qe], -1), torch.cat([k, ke], -1), torch.cat([v, torch.zeros_like(ke)], -1)
+    o = F.scaled_dot_product_attention(q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), scale=1 / math.sqrt(D))
+    o = o[..., :D].transpose(1, 2).flatten(2, 3).type_as(h)
     o = attn.to_out[0](o)
     return attn.to_out[1](o)
 
 
 def block_forward(blk, h, enc, temb, rope, key_bias):
+    """h is kept in fp32 (diffusers keeps it in the model dtype); module inputs are cast to the model
+    dtype. Guards against fp16 overflow on GPUs without bf16 (Wan was trained in bf16)."""
+    dt = enc.dtype
     sh, sc, g, csh, csc, cg = (blk.scale_shift_table + temb.float()).chunk(6, dim=1)
-    n = (blk.norm1(h.float()) * (1 + sc) + sh).type_as(h)
-    h = (h.float() + self_attn(blk.attn1, n, rope, key_bias) * g).type_as(h)
-    n = blk.norm2(h.float()).type_as(h)
-    h = h + blk.attn2(n, enc, None, None)
-    n = (blk.norm3(h.float()) * (1 + csc) + csh).type_as(h)
-    return (h.float() + blk.ffn(n).float() * cg).type_as(h)
+    h = h + self_attn(blk.attn1, (blk.norm1(h) * (1 + sc) + sh).to(dt), rope, key_bias).float() * g
+    h = h + blk.attn2(blk.norm2(h).to(dt), enc, None, None).float()
+    return h + blk.ffn((blk.norm3(h) * (1 + csc) + csh).to(dt)).float() * cg
 
 
 @torch.no_grad()
@@ -92,13 +101,13 @@ def forward_tokens(model, lat_shape, tok, keep, timestep, enc, key_bias=None):
     # patch embedding is a strided conv == a linear map on each token
     W = model.patch_embedding.weight                                    # D, C, pt, ph, pw
     Wl = W.permute(0, 2, 3, 4, 1).reshape(W.shape[0], -1)               # D, pt*ph*pw*C (token layout)
-    h = F.linear(tok.to(W.dtype), Wl, model.patch_embedding.bias)
+    h = F.linear(tok.to(W.dtype), Wl, model.patch_embedding.bias).float()
     temb, tproj, enc, _ = model.condition_embedder(timestep, enc, None, timestep_seq_len=None)
     tproj = tproj.unflatten(1, (6, -1))
     for blk in model.blocks:
         h = block_forward(blk, h, enc, tproj, rope, key_bias)
     sh, sc = (model.scale_shift_table.to(temb.device) + temb.unsqueeze(1)).chunk(2, dim=1)
-    h = (model.norm_out(h.float()) * (1 + sc) + sh).type_as(h)
+    h = (model.norm_out(h) * (1 + sc) + sh).to(model.proj_out.weight.dtype)
     return model.proj_out(h)
 
 
@@ -116,11 +125,12 @@ def _guided(model, shape, tok, keep, sigma, enc_c, enc_u, gscale, key_bias):
     ts = torch.full((2 * B,), float(sigma) * 1000, device=tok.device)
     kb = None if key_bias is None else key_bias.expand(2 * B, -1)
     v = forward_tokens(model, shape, torch.cat([tok, tok]), keep, ts, torch.cat([enc_c, enc_u]), kb).float()
+    assert torch.isfinite(v).all(), "non-finite model output (fp16 overflow?)"
     vc, vu = v[:B], v[B:]
     return vu + gscale * (vc - vu)
 
 
-def static_map(x0_tok, grid, thr, first_frame, pan_gate=None):
+def static_map(x0_tok, grid, thr, first_frame, pan_gate=None, frac=None):
     """x0_tok: (1, N, D) clean-latent estimate. grid = (Fl, Hl, Wl) token grid.
     A position is static if the max over consecutive latent frames (from first_frame on) of the RMS
     token change, divided by the RMS token magnitude, is below thr. Returns (src, info)."""
@@ -128,7 +138,7 @@ def static_map(x0_tok, grid, thr, first_frame, pan_gate=None):
     x = x0_tok[0].float().reshape(Fl, Hl * Wl, -1)[first_frame:]
     scale = x.pow(2).mean().sqrt() + 1e-8
     act = (x[1:] - x[:-1]).pow(2).mean(-1).sqrt().amax(0) / scale       # Hl*Wl
-    stat = act < thr
+    stat = (act <= torch.quantile(act.float(), frac)) if frac is not None else (act < thr)
     pan = 0.0
     if pan_gate is not None:
         pan = global_shift(x[0].mean(-1).reshape(Hl, Wl), x[-1].mean(-1).reshape(Hl, Wl)) / max(1, x.shape[0] - 1)
@@ -148,9 +158,16 @@ def global_shift(a, b):
     R = A * Bf.conj()
     r = torch.fft.ifft2(R / (R.abs() + 1e-8)).real
     i = int(torch.argmax(r))
-    dy, dx = divmod(i, r.shape[1])
-    dy = dy - r.shape[0] if dy > r.shape[0] // 2 else dy
-    dx = dx - r.shape[1] if dx > r.shape[1] // 2 else dx
+    iy, ix = divmod(i, r.shape[1])
+
+    def sub(c, l, rr):            # parabolic peak refinement
+        den = l - 2 * c + rr
+        return 0.0 if abs(float(den)) < 1e-12 else float(0.5 * (l - rr) / den)
+    H, W = r.shape
+    dy = iy + sub(r[iy, ix], r[(iy - 1) % H, ix], r[(iy + 1) % H, ix])
+    dx = ix + sub(r[iy, ix], r[iy, (ix - 1) % W], r[iy, (ix + 1) % W])
+    dy = dy - H if dy > H / 2 else dy
+    dx = dx - W if dx > W / 2 else dx
     return math.hypot(dy, dx)
 
 
@@ -169,20 +186,27 @@ def sample(model, noise, enc_c, enc_u, n_steps=30, shift=3.0, gscale=5.0, share=
     work, info = 0, {}
     gen = torch.Generator(device=x.device).manual_seed(seed)
     keep = inv = mult = kb = None
+    warm = None
+    if share is not None:   # number of full-compute steps before the map is built
+        warm = share.get("warm") or max(1, int((sig[:-1] > share.get("warm_sigma", 0.85)).sum()))
     for k in range(n_steps):
         s, s2 = float(sig[k]), float(sig[k + 1])
-        if share is None or k < share.get("warm", 2) or keep is None:
+        if share is None or k < warm or keep is None:
             v = _guided(model, shape, x.to(model.dtype), allk, s, enc_c, enc_u, gscale, None)
             work += N
             x0 = x - s * v
             x = x + (s2 - s) * v
-            if share is not None and k == share.get("warm", 2) - 1:
-                src, info = static_map(x0, grid, share["thr"], share.get("first_frame", 1), share.get("pan_gate"))
-                keep = torch.unique(src).to(x.device)
-                inv = torch.searchsorted(keep, src.to(x.device))
-                mult = torch.bincount(inv, minlength=len(keep)).float()
-                kb = torch.log(mult)[None] if share.get("prop", True) else None
-                info["kept_frac"] = len(keep) / N
+            if share is not None and k == warm - 1:
+                src, info = static_map(x0, grid, share.get("thr", 0.0), share.get("first_frame", 1), share.get("pan_gate"),
+                                       share.get("frac"))
+                info["warm_steps"] = warm
+                kp = torch.unique(src).to(x.device)
+                info["kept_frac"] = len(kp) / N
+                if len(kp) < N:            # otherwise nothing is shared: stay exactly on plain sampling
+                    keep = kp
+                    inv = torch.searchsorted(keep, src.to(x.device))
+                    mult = torch.bincount(inv, minlength=len(keep)).float()
+                    kb = torch.log(mult)[None] if share.get("prop", True) else None
         else:
             if share.get("average", True):
                 z = torch.zeros(x.shape[0], len(keep), x.shape[-1], device=x.device).index_add_(1, inv, x) / mult[None, :, None]
@@ -200,3 +224,21 @@ def sample(model, noise, enc_c, enc_u, n_steps=30, shift=3.0, gscale=5.0, share=
     info["token_forwards"] = work
     info["full_token_forwards"] = N * n_steps
     return unpatchify(x, p, shape), info
+
+
+@torch.no_grad()
+def sample_unipc(model, noise, enc_c, enc_u, n_steps=15, shift=3.0, gscale=5.0):
+    """Fewer-steps baseline with the scheduler Wan's own pipeline uses (UniPC, flow sigmas)."""
+    from diffusers import UniPCMultistepScheduler
+    sch = UniPCMultistepScheduler(prediction_type="flow_prediction", use_flow_sigmas=True, flow_shift=shift,
+                                  num_train_timesteps=1000)
+    sch.set_timesteps(n_steps, device=noise.device)
+    p = model.config.patch_size
+    shape = noise.shape
+    N = (shape[2] // p[0]) * (shape[3] // p[1]) * (shape[4] // p[2])
+    allk = torch.arange(N, device=noise.device)
+    x = noise.float()
+    for t in sch.timesteps:
+        v = _guided(model, shape, patchify(x, p).to(model.dtype), allk, float(t) / 1000, enc_c, enc_u, gscale, None)
+        x = sch.step(unpatchify(v, p, shape), t, x, return_dict=False)[0]
+    return x, dict(token_forwards=N * n_steps, full_token_forwards=N * n_steps)

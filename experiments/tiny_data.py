@@ -43,6 +43,8 @@ def tiny_clip(rng, T=8, S=32, pan_prob=0.0):
     return np.clip(frames, 0, 255) / 127.5 - 1.0      # [-1, 1]
 
 
-def make_dataset(n, seed=0, pan_prob=0.0):
+def make_dataset(n, seed=0, pan_prob=0.0, T=None):
+    import os
+    T = int(os.environ.get("T", 8)) if T is None else T
     rng = np.random.default_rng(seed)
-    return np.stack([tiny_clip(rng, pan_prob=pan_prob) for _ in range(n)]).astype(np.float32)
+    return np.stack([tiny_clip(rng, T=T, pan_prob=pan_prob) for _ in range(n)]).astype(np.float32)

@@ -16,17 +16,17 @@ cells = [
     md("# ECM frame sharing on Wan 2.1 T2V 1.3B\n"
        "Re-noised averaged frame sharing vs fewer sampling steps, measured against the full-compute output "
        "with identical noise. Needs: GPU T4 x2, Internet on. Outputs land in /kaggle/working/ecm_wan."),
-    code("!pip -q install -U diffusers transformers accelerate ftfy lpips imageio-ffmpeg scikit-image 2>&1 | tail -2\n"
+    code("!pip -q install diffusers==0.42.1 transformers accelerate ftfy lpips imageio-ffmpeg scikit-image 2>&1 | tail -2\n"
          "!nvidia-smi --query-gpu=name,memory.total --format=csv"),
     code("%%writefile ecm_wan.py\n" + open(os.path.join(HERE, "ecm_wan.py")).read()),
     code("%%writefile kaggle_run.py\n" + open(os.path.join(HERE, "kaggle_run.py")).read()),
     code("# Settings. CALIBRATE=True runs one prompt with a few methods (timing + threshold check).\n"
          "CALIBRATE = False\n"
-         "HOURS = 7.5   # per-GPU budget for starting new prompts (Kaggle limit is 12h per run)\n"
+         "HOURS = 7.0   # per-GPU budget for starting new prompts (Kaggle limit is 12h per run)\n"
          "import torch; NGPU = max(1, torch.cuda.device_count()); print('GPUs:', NGPU)"),
     code("!python kaggle_run.py encode 2>&1 | tail -3"),
     code("import subprocess\n"
-         "extra = ['--max_prompts', '1', '--only', 'full_30,steps_15,share_30_thr0.1,share_30_thr0.3'] if CALIBRATE else []\n"
+         "extra = ['--max_prompts', '1', '--only', 'full_30,unipc_15,share_30_f0.5,share_30_f0.75'] if CALIBRATE else []\n"
          "procs = [subprocess.Popen(['python', 'kaggle_run.py', 'gen', '--gpu', str(g), '--shard', f'{g}/{NGPU}', '--hours', str(HOURS)] + extra,\n"
          "                          stdout=open(f'/kaggle/working/gen_{g}.log', 'w'), stderr=subprocess.STDOUT) for g in range(NGPU)]\n"
          "for p in procs: p.wait()\n"

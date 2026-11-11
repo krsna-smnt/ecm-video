@@ -62,18 +62,22 @@ for j in range(8):
 
 def methods(steps):
     """name -> (n_steps, share-config or None). Thresholds are on normalised latent activity."""
+    """name -> (n_steps, share-config | None | "unipc"). Sharing picks the `frac` least-active positions
+    (quantile, so the sweep is guaranteed to span the range), after the steps with sigma > warm_sigma."""
     M = {f"full_{steps}": (steps, None),
          f"steps_{steps // 2}": (steps // 2, None),
          f"steps_{steps // 3}": (steps // 3, None),
-         f"steps_{steps // 4}": (steps // 4, None)}
-    for thr in [0.1, 0.2, 0.3, 0.45]:
-        M[f"share_{steps}_thr{thr}"] = (steps, dict(thr=thr, warm=max(2, steps // 10), first_frame=1, pan_gate=0.25))
-    # stacking: sharing on top of fewer steps
-    M[f"share_{steps // 2}_thr0.3"] = (steps // 2, dict(thr=0.3, warm=max(2, steps // 20), first_frame=1, pan_gate=0.25))
-    # ablations at the middle threshold
-    M[f"abl_noRenoise_{steps}_thr0.3"] = (steps, dict(thr=0.3, warm=max(2, steps // 10), first_frame=1, pan_gate=0.25, renoise=False))
-    M[f"abl_noBias_{steps}_thr0.3"] = (steps, dict(thr=0.3, warm=max(2, steps // 10), first_frame=1, pan_gate=0.25, prop=False))
-    M[f"abl_noGate_{steps}_thr0.3"] = (steps, dict(thr=0.3, warm=max(2, steps // 10), first_frame=1, pan_gate=None))
+         f"steps_{steps // 4}": (steps // 4, None),
+         f"unipc_{steps // 2}": (steps // 2, "unipc"),
+         f"unipc_{steps // 3}": (steps // 3, "unipc")}
+    base = dict(first_frame=1, pan_gate=0.25, warm_sigma=0.85)
+    for frac in [0.25, 0.5, 0.75]:
+        M[f"share_{steps}_f{frac}"] = (steps, dict(base, frac=frac))
+    M[f"share_{steps}_f0.5_early"] = (steps, dict(base, frac=0.5, warm_sigma=0.95))      # map built earlier
+    M[f"share_{steps // 2}_f0.5"] = (steps // 2, dict(base, frac=0.5))                    # stacking
+    M[f"abl_noRenoise_{steps}_f0.5"] = (steps, dict(base, frac=0.5, renoise=False))
+    M[f"abl_noBias_{steps}_f0.5"] = (steps, dict(base, frac=0.5, prop=False))
+    M[f"abl_noGate_{steps}_f0.5"] = (steps, dict(base, frac=0.5, pan_gate=None))
     return M
 
 
@@ -110,7 +114,11 @@ def decode(vae, lat, args):
         return (v.permute(1, 2, 3, 0).cpu().numpy() * 255).astype(np.uint8)
     mean = torch.tensor(vae.config.latents_mean).view(1, -1, 1, 1, 1).to(lat)
     std = torch.tensor(vae.config.latents_std).view(1, -1, 1, 1, 1).to(lat)
-    v = vae.decode(lat.float() * std + mean, return_dict=False)[0]          # B,3,F,H,W in [-1,1]
+    try:
+        v = vae.decode(lat.float() * std + mean, return_dict=False)[0]      # B,3,F,H,W in [-1,1]
+    except torch.cuda.OutOfMemoryError:
+        torch.cuda.empty_cache(); vae.enable_tiling()
+        v = vae.decode(lat.float() * std + mean, return_dict=False)[0]
     v = ((v[0].clamp(-1, 1) + 1) * 127.5).round().byte().permute(1, 2, 3, 0).cpu().numpy()
     return v
 
@@ -176,11 +184,15 @@ def stage_gen(args):
             if device.startswith("cuda"):
                 torch.cuda.synchronize(device)
             t0 = time.time()
-            lat, info = E.sample(model, noise, enc, neg, n_steps=steps, shift=args.shift, gscale=args.cfg,
-                                 share=share, seed=50_000 + i)
+            if share == "unipc":
+                lat, info = E.sample_unipc(model, noise, enc, neg, n_steps=steps, shift=args.shift, gscale=args.cfg)
+            else:
+                lat, info = E.sample(model, noise, enc, neg, n_steps=steps, shift=args.shift, gscale=args.cfg,
+                                     share=share, seed=50_000 + i)
             if device.startswith("cuda"):
                 torch.cuda.synchronize(device)
             dt = time.time() - t0
+            torch.save(lat.half().cpu(), fn[:-4] + ".lat.pt")      # keep the sampling work even if decode fails
             vid = decode(vae, lat, args)
             np.save(fn, vid)
             if "act" in info:   # activity distribution, for threshold calibration
@@ -188,7 +200,7 @@ def stage_gen(args):
             info = {a: b for a, b in info.items() if a != "act"}
             meta[key] = dict(prompt_idx=i, category=cat, method=name, seconds=dt, **info)
             json.dump(meta, open(meta_f, "w"), indent=1)
-            print(f"[gpu{args.gpu}] {key:32s} {dt:7.1f}s  work x{info['full_token_forwards'] / info['token_forwards'] * steps / args.steps:.2f}"
+            print(f"[gpu{args.gpu}] {key:32s} {dt:7.1f}s  compute x{info['full_token_forwards'] / info['token_forwards'] * args.steps / steps:.2f}"
                   f"  static {info.get('static_frac', 0):.2f} pan {info.get('pan', 0):.2f}", flush=True)
 
 
@@ -204,11 +216,13 @@ def ssim_video(a, b):
     return float(np.mean([structural_similarity(x, y, channel_axis=2, data_range=255) for x, y in zip(a, b)]))
 
 
-def flicker(v):
-    """Mean absolute frame difference of the 10% least-changing pixels (background stability)."""
+def flicker(v, ref):
+    """Mean |frame diff| over the 10% of pixels that change least IN THE REFERENCE (fixed mask, so a
+    method cannot lower its score by freezing a different set of pixels)."""
+    dr = np.abs(np.diff(ref.astype(np.float32), axis=0)).mean(-1).mean(0)
+    mask = dr <= np.quantile(dr, 0.1)
     d = np.abs(np.diff(v.astype(np.float32), axis=0)).mean(-1)
-    thr = np.quantile(d.mean(0), 0.1)
-    return float(d[:, d.mean(0) <= thr].mean())
+    return float(d[:, mask].mean())
 
 
 def motion(v):
@@ -237,7 +251,7 @@ def stage_report(args):
         r = np.load(os.path.join(args.out, "vids", ref_key + ".npy"))
         rec = dict(category=m["category"], seconds=m["seconds"], ref_seconds=meta[ref_key]["seconds"],
                    work=m["token_forwards"], ref_work=meta[ref_key]["token_forwards"],
-                   psnr=psnr(v, r), ssim=ssim_video(v, r), flicker=flicker(v), motion=motion(v),
+                   psnr=psnr(v, r), ssim=ssim_video(v, r), flicker=flicker(v, r), ref_flicker=flicker(r, r), motion=motion(v),
                    ref_motion=motion(r), static_frac=m.get("static_frac", 0.0), gated=m.get("pan", 0) > 0.25)
         if lp is not None:
             with torch.no_grad():
@@ -260,7 +274,8 @@ def stage_report(args):
     lines = ["# Wan 2.1 1.3B: re-noised averaged frame sharing vs fewer steps", "",
              f"{args.frames} frames, {args.height}x{args.width}, Euler flow sampler, shift {args.shift}, CFG {args.cfg}. "
              f"Reference = {ref_name} with identical noise. Speedups: wall-clock (measured, sampling only) and "
-             "token-forward ratio (compute). motion = mean |frame diff| relative to the reference (1.0 = same amount of motion).", ""]
+             "token-forward ratio (compute; conservative: attention cost scales with tokens^2). Baselines steps_* use Euler, unipc_* use Wan's own UniPC scheduler. "
+             "flicker uses the reference's 10% least-changing pixels. 'gated' = pan gate fired (pan > 0.25 tokens/frame). motion = mean |frame diff| relative to the reference (1.0 = same amount of motion).", ""]
     summary = {}
     for cat in ["all", "static", "moving"]:
         lines += [f"## {cat} prompts", "",

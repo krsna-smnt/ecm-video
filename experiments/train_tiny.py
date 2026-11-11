@@ -22,7 +22,16 @@ X = torch.from_numpy(np.load(data_path)["x"])
 
 import os as _os
 CFG = dict(P=int(_os.environ.get("P", 4)), d=int(_os.environ.get("D", 96)))
+if int(_os.environ.get("T", 8)) != 8:
+    CFG["T"] = int(_os.environ["T"])
 model = TinyVideoDiT(**CFG)
+INIT = _os.environ.get("INIT")      # warm-start from a T=8 checkpoint, interpolating temporal embeddings
+if INIT and not os.path.exists(ck):
+    sd = torch.load(INIT, weights_only=False)["ema"]
+    pt = sd["pos_t"]                                                # T0, 1, d
+    sd["pos_t"] = torch.nn.functional.interpolate(pt.permute(1, 2, 0), size=CFG.get("T", 8), mode="linear",
+                                                  align_corners=True).permute(2, 0, 1)
+    model.load_state_dict(sd)
 opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.0)
 ema = TinyVideoDiT(**CFG); ema.load_state_dict(model.state_dict())
 step, log = 0, []

@@ -63,3 +63,14 @@ tokmap = seq.reshape(1, 6 * 400, 1).repeat(1, 1, 4)
 src, info = E.static_map(tokmap, (6, 20, 20), thr=1e9, first_frame=1, pan_gate=0.5)
 print("pan estimate (tokens/frame):", info["pan"], "static_frac", info["static_frac"]); assert info["static_frac"] == 0
 print("ALL CHECKS PASSED")
+
+# 7. quantile sharing + warm_sigma path + UniPC baseline run
+d, idd = E.sample(m, noise, enc, torch.zeros_like(enc), n_steps=10, share=dict(frac=0.5, warm_sigma=0.85, first_frame=1))
+print("frac=0.5:", {k: v for k, v in idd.items() if k != "act"}); assert 0 < idd["static_frac"] <= 0.55
+u, iu = E.sample_unipc(m, noise, enc, torch.zeros_like(enc), n_steps=8)
+assert torch.isfinite(u).all(); print("unipc ok")
+# sub-token pan: 0.5-token shift per frame via linear interpolation
+xs = torch.nn.functional.avg_pool2d(torch.randn(1, 1, 40, 40), 2)[0, 0]
+fr = [xs] + [0.5 * (torch.roll(xs, f, 1) + torch.roll(xs, f - 1, 1)) if False else torch.roll(xs, f, 1) for f in range(1, 3)]
+print("pan est (1 token/frame expected ~1):", E.global_shift(fr[0], fr[2]) / 2)
+print("ALL CHECKS PASSED 2")

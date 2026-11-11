@@ -135,7 +135,7 @@ def static_map(x0_tok, grid, thr, first_frame, pan_gate=None, frac=None):
     A position is static if the max over consecutive latent frames (from first_frame on) of the RMS
     token change, divided by the RMS token magnitude, is below thr. Returns (src, info)."""
     Fl, Hl, Wl = grid
-    x = x0_tok[0].float().reshape(Fl, Hl * Wl, -1)[first_frame:]
+    x = x0_tok[0].detach().float().cpu().reshape(Fl, Hl * Wl, -1)[first_frame:]   # map is built on CPU
     scale = x.pow(2).mean().sqrt() + 1e-8
     act = (x[1:] - x[:-1]).pow(2).mean(-1).sqrt().amax(0) / scale       # Hl*Wl
     stat = (act <= torch.quantile(act.float(), frac)) if frac is not None else (act < thr)
@@ -187,7 +187,28 @@ def sample(model, noise, enc_c, enc_u, n_steps=30, shift=3.0, gscale=5.0, share=
     gen = torch.Generator(device=x.device).manual_seed(seed)
     keep = inv = mult = kb = None
     warm = None
-    if share is not None:   # number of full-compute steps before the map is built
+
+    def build(x0_est):
+        nonlocal keep, inv, mult, kb, info
+        src, info = static_map(x0_est, grid, share.get("thr", 0.0), share.get("first_frame", 1), share.get("pan_gate"),
+                               share.get("frac"))
+        kp = torch.unique(src).to(x.device)
+        info["kept_frac"] = len(kp) / N
+        if len(kp) < N:            # otherwise nothing is shared: stay exactly on plain sampling
+            keep = kp
+            inv = torch.searchsorted(keep, src.to(x.device))
+            mult = torch.bincount(inv, minlength=len(keep)).float()
+            kb = torch.log(mult)[None] if share.get("prop", True) else None
+
+    if share is not None and share.get("draft"):
+        # toy-study protocol: a cheap separate full-compute draft from the SAME noise gives a complete
+        # (blurry) video; its motion decides the map, and sharing then runs from step 0.
+        d_lat, d_info = sample(model, noise, enc_c, enc_u, n_steps=share["draft"], shift=shift, gscale=gscale)
+        work += d_info["token_forwards"]
+        build(patchify(d_lat.float(), p))
+        info["draft_steps"] = share["draft"]
+        warm = 0
+    elif share is not None:   # number of full-compute steps before the map is built
         warm = share.get("warm") or max(1, int((sig[:-1] > share.get("warm_sigma", 0.85)).sum()))
     for k in range(n_steps):
         s, s2 = float(sig[k]), float(sig[k + 1])
@@ -197,16 +218,8 @@ def sample(model, noise, enc_c, enc_u, n_steps=30, shift=3.0, gscale=5.0, share=
             x0 = x - s * v
             x = x + (s2 - s) * v
             if share is not None and k == warm - 1:
-                src, info = static_map(x0, grid, share.get("thr", 0.0), share.get("first_frame", 1), share.get("pan_gate"),
-                                       share.get("frac"))
+                build(x0)
                 info["warm_steps"] = warm
-                kp = torch.unique(src).to(x.device)
-                info["kept_frac"] = len(kp) / N
-                if len(kp) < N:            # otherwise nothing is shared: stay exactly on plain sampling
-                    keep = kp
-                    inv = torch.searchsorted(keep, src.to(x.device))
-                    mult = torch.bincount(inv, minlength=len(keep)).float()
-                    kb = torch.log(mult)[None] if share.get("prop", True) else None
         else:
             if share.get("average", True):
                 z = torch.zeros(x.shape[0], len(keep), x.shape[-1], device=x.device).index_add_(1, inv, x) / mult[None, :, None]

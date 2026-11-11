@@ -74,3 +74,9 @@ xs = torch.nn.functional.avg_pool2d(torch.randn(1, 1, 40, 40), 2)[0, 0]
 fr = [xs] + [0.5 * (torch.roll(xs, f, 1) + torch.roll(xs, f - 1, 1)) if False else torch.roll(xs, f, 1) for f in range(1, 3)]
 print("pan est (1 token/frame expected ~1):", E.global_shift(fr[0], fr[2]) / 2)
 print("ALL CHECKS PASSED 2")
+
+# 8. draft-map path (toy protocol): runs, counts the draft's work, shares from step 0
+e, ie = E.sample(m, noise, enc, torch.zeros_like(enc), n_steps=10, share=dict(frac=0.75, draft=3, first_frame=1))
+print("draft3 frac0.75:", {k: v for k, v in ie.items() if k != "act"})
+assert ie["token_forwards"] < ie["full_token_forwards"] and ie["draft_steps"] == 3 and torch.isfinite(e).all()
+print("ALL CHECKS PASSED 3")

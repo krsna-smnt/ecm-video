@@ -61,23 +61,24 @@ for j in range(8):
 
 
 def methods(steps):
-    """name -> (n_steps, share-config or None). Thresholds are on normalised latent activity."""
-    """name -> (n_steps, share-config | None | "unipc"). Sharing picks the `frac` least-active positions
-    (quantile, so the sweep is guaranteed to span the range), after the steps with sigma > warm_sigma."""
-    M = {f"full_{steps}": (steps, None),
-         f"steps_{steps // 2}": (steps // 2, None),
-         f"steps_{steps // 3}": (steps // 3, None),
-         f"steps_{steps // 4}": (steps // 4, None),
-         f"unipc_{steps // 2}": (steps // 2, "unipc"),
-         f"unipc_{steps // 3}": (steps // 3, "unipc")}
-    base = dict(first_frame=1, pan_gate=0.25, warm_sigma=0.85)
-    for frac in [0.25, 0.5, 0.75]:
-        M[f"share_{steps}_f{frac}"] = (steps, dict(base, frac=frac))
-    M[f"share_{steps}_f0.5_early"] = (steps, dict(base, frac=0.5, warm_sigma=0.95))      # map built earlier
-    M[f"share_{steps // 2}_f0.5"] = (steps // 2, dict(base, frac=0.5))                    # stacking
-    M[f"abl_noRenoise_{steps}_f0.5"] = (steps, dict(base, frac=0.5, renoise=False))
-    M[f"abl_noBias_{steps}_f0.5"] = (steps, dict(base, frac=0.5, prop=False))
-    M[f"abl_noGate_{steps}_f0.5"] = (steps, dict(base, frac=0.5, pan_gate=None))
+    """name -> (n_steps, share-config | None | "unipc").
+    Sharing picks the `frac` least-active token positions (quantile, so the sweep spans the range).
+    The map comes either from a cheap separate draft from the same noise (draft=3: the toy-study
+    protocol, sharing from step 0) or from the model's own estimate after the steps with sigma > 0.85
+    (warm: no extra pass, but sharing starts late, which caps the speedup)."""
+    M = {f"full_{steps}": (steps, None)}
+    for n in [steps * 2 // 3, steps // 2, steps // 3]:          # 20 / 15 / 10 at steps=30
+        M[f"steps_{n}"] = (n, None)
+    for n in [steps * 2 // 3, steps // 2]:
+        M[f"unipc_{n}"] = (n, "unipc")
+    d = dict(first_frame=1, pan_gate=0.25, draft=3)
+    for frac in [0.5, 0.75, 0.9]:
+        M[f"share_{steps}_f{frac}_draft3"] = (steps, dict(d, frac=frac))
+    M[f"share_{steps}_f0.75_warm"] = (steps, dict(first_frame=1, pan_gate=0.25, warm_sigma=0.85, frac=0.75))
+    M[f"share_{steps // 2}_f0.75_draft3"] = (steps // 2, dict(d, frac=0.75))         # stacking on fewer steps
+    M[f"abl_noRenoise_{steps}_f0.75_draft3"] = (steps, dict(d, frac=0.75, renoise=False))
+    M[f"abl_noBias_{steps}_f0.75_draft3"] = (steps, dict(d, frac=0.75, prop=False))
+    M[f"abl_noGate_{steps}_f0.75_draft3"] = (steps, dict(d, frac=0.75, pan_gate=None))   # also a guard if the gate misfires
     return M
 
 
@@ -240,6 +241,22 @@ def stage_report(args):
         lp = lpips.LPIPS(net="alex", verbose=False)
     except Exception as e:  # noqa
         print("LPIPS unavailable:", e)
+    clip = None
+    try:
+        from transformers import CLIPModel, CLIPProcessor
+        clip = (CLIPModel.from_pretrained("openai/clip-vit-base-patch32").eval(),
+                CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32"))
+    except Exception as e:  # noqa
+        print("CLIP unavailable:", e)
+
+    def clip_score(v, prompt):
+        with torch.no_grad():
+            fr = [v[j] for j in np.linspace(0, len(v) - 1, 8).astype(int)]
+            inp = clip[1](text=[prompt], images=fr, return_tensors="pt", padding=True)
+            out = clip[0](**inp)
+            im = torch.nn.functional.normalize(out.image_embeds, dim=-1)
+            tx = torch.nn.functional.normalize(out.text_embeds, dim=-1)
+            return float((im @ tx.T).mean() * 100)
     ref_name = f"full_{args.steps}"
     rows = {}
     for key, m in sorted(meta.items()):
@@ -253,6 +270,8 @@ def stage_report(args):
                    work=m["token_forwards"], ref_work=meta[ref_key]["token_forwards"],
                    psnr=psnr(v, r), ssim=ssim_video(v, r), flicker=flicker(v, r), ref_flicker=flicker(r, r), motion=motion(v),
                    ref_motion=motion(r), static_frac=m.get("static_frac", 0.0), gated=m.get("pan", 0) > 0.25)
+        if clip is not None:
+            rec["clip"] = clip_score(v, PROMPTS[i][1])
         if lp is not None:
             with torch.no_grad():
                 tv = torch.from_numpy(v).permute(0, 3, 1, 2).float() / 127.5 - 1
@@ -268,7 +287,7 @@ def stage_report(args):
         g = lambda k: float(np.mean([r[k] for r in rs])) if k in rs[0] else float("nan")
         return dict(n=len(rs), wall=float(np.sum([r["ref_seconds"] for r in rs]) / np.sum([r["seconds"] for r in rs])),
                     flops=float(np.sum([r["ref_work"] for r in rs]) / np.sum([r["work"] for r in rs])),
-                    psnr=g("psnr"), ssim=g("ssim"), lpips=g("lpips"), flicker=g("flicker"),
+                    psnr=g("psnr"), ssim=g("ssim"), lpips=g("lpips"), flicker=g("flicker"), clip=g("clip"),
                     motion_ratio=float(np.mean([r["motion"] / max(r["ref_motion"], 1e-6) for r in rs])),
                     static=g("static_frac"), gated=g("gated"))
     lines = ["# Wan 2.1 1.3B: re-noised averaged frame sharing vs fewer steps", "",
@@ -279,15 +298,15 @@ def stage_report(args):
     summary = {}
     for cat in ["all", "static", "moving"]:
         lines += [f"## {cat} prompts", "",
-                  "| method | n | wall-clock x | compute x | PSNR | SSIM | LPIPS | flicker | motion | static frac | gated |",
-                  "|---|---|---|---|---|---|---|---|---|---|---|"]
+                  "| method | n | wall-clock x | compute x | PSNR | SSIM | LPIPS | CLIP | flicker | motion | static frac | gated |",
+                  "|---|---|---|---|---|---|---|---|---|---|---|---|"]
         for name, recs in rows.items():
             a = agg(recs, cat)
             if a is None:
                 continue
             summary.setdefault(cat, {})[name] = a
             lines.append(f"| {name} | {a['n']} | {a['wall']:.2f} | {a['flops']:.2f} | {a['psnr']:.2f} | {a['ssim']:.3f} | "
-                         f"{a['lpips']:.3f} | {a['flicker']:.2f} | {a['motion_ratio']:.2f} | {a['static']:.2f} | {a['gated']:.2f} |")
+                         f"{a['lpips']:.3f} | {a['clip']:.2f} | {a['flicker']:.2f} | {a['motion_ratio']:.2f} | {a['static']:.2f} | {a['gated']:.2f} |")
         lines.append("")
     open(os.path.join(args.out, "results.md"), "w").write("\n".join(lines))
     json.dump(summary, open(os.path.join(args.out, "summary.json"), "w"), indent=1)

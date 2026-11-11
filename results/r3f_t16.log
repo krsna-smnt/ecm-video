@@ -1,0 +1,28 @@
+/home/claude/ecm-video/experiments/r3b_quality.py:32: LinAlgWarning: Matrix is singular. The result might be inaccurate or the array might not have a square root.
+  cs = linalg.sqrtm(s1 @ s2).real
+normal_20                speed 1.00  FD 0.000292  C2ST 0.769  static 0.62  jerk 0.043  phys: flick 0.009 area 0.97 vjerk 2.36 app 0.31 valid 0.23  (119s)
+/home/claude/ecm-video/experiments/r3b_quality.py:32: LinAlgWarning: Matrix is singular. The result might be inaccurate or the array might not have a square root.
+  cs = linalg.sqrtm(s1 @ s2).real
+normal_10                speed 2.00  FD 0.000764  C2ST 0.877  static 0.67  jerk 0.035  phys: flick 0.010 area 1.13 vjerk 2.27 app 0.30 valid 0.12  (210s)
+normal_8                 speed 2.50  FD 0.000956  C2ST 0.906  static 0.69  jerk 0.032  phys: flick 0.010 area 1.25 vjerk 2.24 app 0.30 valid 0.08  (295s)
+normal_6                 speed 3.33  FD 0.001179  C2ST 0.935  static 0.70  jerk 0.029  phys: flick 0.010 area 1.37 vjerk 2.16 app 0.29 valid 0.03  (377s)
+normal_5                 speed 4.00  FD 0.001319  C2ST 0.958  static 0.71  jerk 0.026  phys: flick 0.011 area 1.50 vjerk 1.98 app 0.27 valid 0.01  (454s)
+shared_noise_20          speed 4.17  FD 0.007081  C2ST 0.994  static 0.88  jerk 0.183  phys: flick 0.002 area 0.80 vjerk 1.61 app 0.40 valid 0.29  (543s)
+avg_20_thr0.03           speed 4.17  FD 0.001430  C2ST 0.860  static 0.88  jerk 0.132  phys: flick 0.001 area 0.91 vjerk 1.48 app 0.33 valid 0.27  (635s)
+avg_20_thr0.06           speed 6.47  FD 0.000646  C2ST 0.904  static 0.99  jerk 0.158  phys: flick 0.000 area 1.43 vjerk 0.78 app 0.37 valid 0.01  (722s)
+avg_renoise_20_thr0.03   speed 4.17  FD 0.001060  C2ST 0.829  static 0.89  jerk 0.085  phys: flick 0.002 area 1.05 vjerk 1.49 app 0.32 valid 0.16  (813s)
+ablate_noRenoise_20_thr0.02 speed 2.44  FD 0.004413  C2ST 0.846  static 0.71  jerk 0.096  phys: flick 0.004 area 0.62 vjerk 2.00 app 0.30 valid 0.67  (913s)
+ablate_noPropAttn_20_thr0.02 speed 2.44  FD 0.000029  C2ST 0.865  static 0.73  jerk 0.057  phys: flick 0.006 area 1.13 vjerk 2.09 app 0.31 valid 0.10  (1012s)
+ablate_noAverage_20_thr0.02 speed 2.44  FD 0.004633  C2ST 0.977  static 0.69  jerk 0.125  phys: flick 0.006 area 0.64 vjerk 2.35 app 0.35 valid 0.54  (1116s)
+avg_renoise_20_thr0.01   speed 0.91  FD 0.000273  C2ST 0.771  static 0.61  jerk 0.043  phys: flick 0.009 area 0.96 vjerk 2.36 app 0.31 valid 0.23  (1247s)
+avg_renoise_20_thr0.015  speed 1.49  FD 0.000216  C2ST 0.810  static 0.58  jerk 0.054  phys: flick 0.009 area 0.77 vjerk 2.34 app 0.31 valid 0.41  (1360s)
+avg_renoise_20_thr0.02   speed 2.44  FD 0.000729  C2ST 0.777  static 0.71  jerk 0.067  phys: flick 0.005 area 0.77 vjerk 2.13 app 0.31 valid 0.35  (1463s)
+avg_10_thr0.03           speed 5.88  FD 0.000176  C2ST 0.823  static 0.88  jerk 0.109  phys: flick 0.001 area 1.10 vjerk 1.57 app 0.33 valid 0.14  (1551s)
+avg_10_thr0.06           speed 7.86  FD 0.000107  C2ST 0.913  static 0.99  jerk 0.136  phys: flick 0.000 area 1.65 vjerk 0.78 app 0.37 valid 0.00  (1636s)
+avg_renoise_10_thr0.03   speed 5.88  FD 0.000417  C2ST 0.896  static 0.89  jerk 0.070  phys: flick 0.002 area 1.07 vjerk 1.45 app 0.31 valid 0.11  (1722s)
+ablate_noRenoise_10_thr0.02 speed 3.93  FD 0.000860  C2ST 0.727  static 0.70  jerk 0.073  phys: flick 0.004 area 0.74 vjerk 2.18 app 0.31 valid 0.44  (1812s)
+ablate_noPropAttn_10_thr0.02 speed 3.93  FD 0.000168  C2ST 0.794  static 0.74  jerk 0.047  phys: flick 0.006 area 1.25 vjerk 2.00 app 0.30 valid 0.07  (1904s)
+ablate_noAverage_10_thr0.02 speed 3.93  FD 0.002078  C2ST 0.965  static 0.69  jerk 0.082  phys: flick 0.007 area 0.73 vjerk 2.34 app 0.33 valid 0.38  (1992s)
+avg_renoise_10_thr0.01   speed 1.68  FD 0.000733  C2ST 0.865  static 0.67  jerk 0.035  phys: flick 0.010 area 1.12 vjerk 2.28 app 0.30 valid 0.13  (2095s)
+avg_renoise_10_thr0.015  speed 2.60  FD 0.000157  C2ST 0.758  static 0.61  jerk 0.044  phys: flick 0.010 area 0.87 vjerk 2.37 app 0.30 valid 0.29  (2188s)
+avg_renoise_10_thr0.02   speed 3.93  FD 0.000242  C2ST 0.913  static 0.72  jerk 0.054  phys: flick 0.006 area 0.84 vjerk 2.16 app 0.31 valid 0.26  (2279s)

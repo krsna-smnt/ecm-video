@@ -420,3 +420,45 @@ Methods:
 - ablations: no re-noise, no log(m) bias, no pan gate.
 
 Started as Kaggle Version #1 (headless Save & Run All), 11 Nov ~11:40 IST.
+
+---
+## 11 Nov: 16-frame clips (task 14)
+
+**Model.** The 42k checkpoint extended to T=16: temporal embeddings interpolated linearly, then
+fine-tuned 8k steps on fresh 16-frame data, giving 256 tokens. It is a weaker model than the
+8-frame one: full-compute C2ST is 0.77 / 0.70 on the two seed sets, vs 0.66 for T=8.
+
+**Full battery, 400 clips** (`results/r3f_battery_tiny_ckpt_t16*.json`). C2ST accuracy, where
+0.5 means indistinguishable from real. Format is set 1 / set 2 (set 2: fresh noise and real
+seeds).
+
+| method | compute x | C2ST | area drift | valid |
+|---|---|---|---|---|
+| full, 20 steps | 1.0 | 0.769 / 0.696 | 0.97 / 0.96 | 0.23 / 0.26 |
+| normal 10 steps | 2.0 | 0.877 / 0.817 | 1.13 / 1.16 | 0.12 / 0.14 |
+| normal 8 steps | 2.5 | 0.906 / 0.863 | 1.25 / 1.25 | 0.08 / 0.10 |
+| **share 20 steps, thr 0.02** | 2.44 | **0.777 / 0.817** | 0.77 / 0.74 | 0.35 / 0.37 |
+| **share 10 steps, thr 0.015** | 2.6 | **0.758 / 0.812** | 0.87 / 0.85 | 0.29 / 0.30 |
+| normal 6 steps | 3.3 | 0.935 / 0.896 | 1.37 / 1.38 | 0.03 / 0.04 |
+| normal 5 steps | 4.0 | 0.958 / 0.915 | 1.50 / 1.54 | 0.01 / 0.02 |
+| **share 10 steps, thr 0.02** | 3.9 | **0.913 / 0.887** | 0.80 / 0.80 | 0.26 / 0.28 |
+| **share 20 steps, thr 0.03** | 4.2 | **0.829 / 0.871** | 1.05 / 1.04 | 0.16 / 0.16 |
+
+**Observations**
+1. With twice the frames, the same thresholds share more, so speedups rise: 4.2x at thr 0.03,
+   vs 3.0-3.9x at T=8. This is the expected scaling, since a static position collapses T copies
+   into one.
+2. At matched compute, sharing beats fewer steps on C2ST in both seed sets at both speeds.
+   - At about 2.5x, sharing is within noise of full compute on set 1 (0.76-0.78 vs 0.77). On set
+     2 it is 0.81 against full 0.70, so a real but smaller loss.
+   - At about 4x the margin over normal 5 steps is 0.04-0.13.
+   - Area drift and validity favour sharing everywhere. Validity is biased toward frozen
+     backgrounds, so it is supporting evidence only.
+3. Ablations (set 1 only):
+   - Averaging is clearly necessary: without it, C2ST is 0.977 / 0.965.
+   - Re-noising and the log(m) bias are not consistently necessary at T=16. No re-noise: 0.846
+     at 20 steps (worse than 0.777) but 0.727 at 10 steps (better than 0.913). No bias: 0.865 at
+     20 steps (worse) but 0.794 at 10 steps (better).
+   - The C2ST standard error is about 0.03 (240 held-out clips), so these swings are partly
+     noise. **Claim only averaging as universally necessary**; report the others as helping at
+     T=8 and mixed at T=16.

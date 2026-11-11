@@ -1,0 +1,13 @@
+/home/claude/ecm-video/experiments/r3b_quality.py:32: LinAlgWarning: Matrix is singular. The result might be inaccurate or the array might not have a square root.
+  cs = linalg.sqrtm(s1 @ s2).real
+normal_20                speed 1.00  FD 0.000223  C2ST 0.696  static 0.62  jerk 0.043  phys: flick 0.009 area 0.96 vjerk 2.33 app 0.31 valid 0.26  (124s)
+/home/claude/ecm-video/experiments/r3b_quality.py:32: LinAlgWarning: Matrix is singular. The result might be inaccurate or the array might not have a square root.
+  cs = linalg.sqrtm(s1 @ s2).real
+normal_10                speed 2.00  FD 0.000645  C2ST 0.817  static 0.67  jerk 0.035  phys: flick 0.010 area 1.16 vjerk 2.20 app 0.30 valid 0.14  (220s)
+normal_8                 speed 2.50  FD 0.000822  C2ST 0.863  static 0.69  jerk 0.032  phys: flick 0.010 area 1.25 vjerk 2.14 app 0.29 valid 0.10  (308s)
+normal_6                 speed 3.33  FD 0.001031  C2ST 0.896  static 0.70  jerk 0.029  phys: flick 0.010 area 1.38 vjerk 2.03 app 0.29 valid 0.04  (391s)
+normal_5                 speed 4.00  FD 0.001165  C2ST 0.915  static 0.71  jerk 0.026  phys: flick 0.011 area 1.54 vjerk 1.92 app 0.28 valid 0.02  (472s)
+avg_renoise_20_thr0.03   speed 4.20  FD 0.000975  C2ST 0.871  static 0.89  jerk 0.083  phys: flick 0.002 area 1.04 vjerk 1.51 app 0.32 valid 0.16  (564s)
+avg_renoise_20_thr0.02   speed 2.44  FD 0.000764  C2ST 0.817  static 0.71  jerk 0.067  phys: flick 0.005 area 0.74 vjerk 2.12 app 0.31 valid 0.37  (667s)
+avg_renoise_10_thr0.015  speed 2.58  FD 0.000106  C2ST 0.812  static 0.61  jerk 0.044  phys: flick 0.010 area 0.85 vjerk 2.41 app 0.30 valid 0.30  (765s)
+avg_renoise_10_thr0.02   speed 3.92  FD 0.000244  C2ST 0.887  static 0.72  jerk 0.054  phys: flick 0.006 area 0.80 vjerk 2.10 app 0.29 valid 0.28  (853s)

@@ -1,5 +1,6 @@
 """Builds wan/ecm_wan_kaggle.ipynb: a self-contained Kaggle notebook (code embedded via %%writefile)."""
-import json, os
+import json, os, sys
+CAL = "--calibrate" in sys.argv
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -21,7 +22,7 @@ cells = [
     code("%%writefile ecm_wan.py\n" + open(os.path.join(HERE, "ecm_wan.py")).read()),
     code("%%writefile kaggle_run.py\n" + open(os.path.join(HERE, "kaggle_run.py")).read()),
     code("# Settings. CALIBRATE=True runs one prompt with a few methods (timing + threshold check).\n"
-         "CALIBRATE = False\n"
+         f"CALIBRATE = {CAL}\n"
          "HOURS = 7.0   # per-GPU budget for starting new prompts (Kaggle limit is 12h per run)\n"
          "import torch; NGPU = max(1, torch.cuda.device_count()); print('GPUs:', NGPU)"),
     code("!python kaggle_run.py encode 2>&1 | tail -3"),
@@ -42,5 +43,5 @@ nb = {"cells": cells, "metadata": {"kernelspec": {"display_name": "Python 3", "l
                                    "language_info": {"name": "python"}}, "nbformat": 4, "nbformat_minor": 4}
 for c in nb["cells"]:
     c["source"] = c["source"].splitlines(keepends=True)
-json.dump(nb, open(os.path.join(HERE, "ecm_wan_kaggle.ipynb"), "w"), indent=1)
+json.dump(nb, open(os.path.join(HERE, "ecm_wan_kaggle_cal.ipynb" if CAL else "ecm_wan_kaggle.ipynb"), "w"), indent=1)
 print("wrote", os.path.join(HERE, "ecm_wan_kaggle.ipynb"))

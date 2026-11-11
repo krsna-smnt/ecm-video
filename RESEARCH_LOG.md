@@ -375,3 +375,48 @@ for the clip if the camera moves.
    instead of freezing them. That is the ECM idea of advection made literal. Not attempted
    tonight, because patch-grid shifts need either integer-patch motion or interpolation in
    token space.
+
+---
+## 11 Nov: the real-model test (Wan 2.1 T2V 1.3B on free Kaggle GPUs)
+
+No GPU budget, so the decisive test runs on Kaggle's free tier (2x T4, 30 h/week).
+
+**Port** (`wan/ecm_wan.py`): a kept-token forward through diffusers' `WanTransformer3DModel`
+(patch embedding as a linear map on tokens, gathered RoPE, per-key log(m) bias), plus the
+re-noised averaged sharing sampler in the flow-matching convention (x = (1-s) x0 + s eps,
+v = eps - x0). CPU checks against diffusers with random weights (`wan/test_ecm_wan.py`):
+- the full-token forward matches `model(...)` to 7e-7;
+- the log(m) key bias equals duplicating the key m times, to 1e-7;
+- sharing with nothing static reproduces plain sampling exactly.
+
+**Design decision:** the log(m) bias is folded into an extra q/k channel instead of a float
+attention mask. A mask can push SDPA onto a kernel that materialises the L x L matrix (about 9 GB
+at 14k tokens on a T4). The fold is exact.
+
+**An independent review agent** caught five problems before the run, all fixed:
+1. The static map was built from x0_hat at sigma ~ 0.98, which is near-pure noise. It is now
+   built after warm-up to sigma 0.85, and a sigma 0.95 variant is kept as an ablation.
+2. The absolute thresholds were uncalibrated for Wan latents. Sharing now uses a quantile
+   fraction of positions (0.25 / 0.5 / 0.75), so the sweep is guaranteed to span the range.
+3. Gated or nothing-static runs still went through the sharing path. They now fall back to
+   plain sampling exactly.
+4. fp16 on T4 could overflow silently. The residual stream is now kept in fp32, with a
+   finiteness assert.
+5. Flicker was measured on each video's own still pixels, which favours freezing. It now uses
+   the reference's 10% stillest pixels.
+
+Also added: a UniPC fewer-steps baseline (Wan's own scheduler), saving latents before decoding,
+and sub-token pan estimation.
+
+**Protocol** (`wan/kaggle_run.py`): 24 prompts (16 static camera, 8 moving camera), 33 frames at
+480x832, CFG 5, shift 3. Every method uses the same initial noise as the full-compute Euler-30
+reference. Metrics: PSNR, SSIM and LPIPS to the reference, measured wall-clock, compute ratio,
+reference-masked flicker, and motion ratio.
+
+Methods:
+- Euler 15 / 10 / 7 steps and UniPC 15 / 10 steps;
+- sharing at 30 steps with frac 0.25 / 0.5 / 0.75, plus frac 0.5 with an early map;
+- sharing at 15 steps (stacking);
+- ablations: no re-noise, no log(m) bias, no pan gate.
+
+Started as Kaggle Version #1 (headless Save & Run All), 11 Nov ~11:40 IST.

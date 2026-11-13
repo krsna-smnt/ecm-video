@@ -1,0 +1,118 @@
+/usr/local/lib/python3.13/dist-packages/huggingface_hub/utils/_validators.py:206: UserWarning: The `local_dir_use_symlinks` argument is deprecated and ignored in `hf_hub_download`. Downloading to a local directory does not use symlinks anymore.
+  warnings.warn(
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files:  50%|█████     | 1/2 [00:07<00:07,  7.46s/it]Fetching 2 files: 100%|██████████| 2/2 [00:30<00:00, 16.84s/it]Fetching 2 files: 100%|██████████| 2/2 [00:30<00:00, 15.43s/it]
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:02<00:02,  2.17s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:02<00:00,  1.07s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:02<00:00,  1.23s/it]
+[gpu0] 00_full_30                         373.5s  compute x1.00  static 0.00 pan 0.00
+[gpu0] 00_steps_20                        254.3s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 00_steps_15                        190.2s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 00_steps_10                        126.7s  compute x3.00  static 0.00 pan 0.00
+[gpu0] 00_unipc_20                        254.3s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 00_unipc_15                        190.4s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 00_share_30_f0.5_draft3            299.2s  compute x1.41  static 0.50 pan 0.04
+[gpu0] 00_share_30_f0.75_draft3           183.2s  compute x1.94  static 0.75 pan 0.04
+[gpu0] 00_share_30_f0.9_draft3            128.1s  compute x2.50  static 0.90 pan 0.04
+[gpu0] 00_share_30_f0.75_warm             231.8s  compute x1.59  static 0.75 pan 0.02
+[gpu0] 00_share_15_f0.75_draft3           110.5s  compute x3.24  static 0.75 pan 0.04
+[gpu0] 00_abl_noRenoise_30_f0.75_draft3   182.3s  compute x1.94  static 0.75 pan 0.04
+[gpu0] 00_abl_noBias_30_f0.75_draft3      142.4s  compute x1.94  static 0.75 pan 0.04
+[gpu0] 00_abl_noGate_30_f0.75_draft3      183.1s  compute x1.94  static 0.75 pan 0.00
+[gpu0] 02_full_30                         380.6s  compute x1.00  static 0.00 pan 0.00
+[gpu0] 02_steps_20                        253.7s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 02_steps_15                        190.0s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 02_steps_10                        126.4s  compute x3.00  static 0.00 pan 0.00
+[gpu0] 02_unipc_20                        254.1s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 02_unipc_15                        190.5s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 02_share_30_f0.5_draft3            298.4s  compute x1.41  static 0.50 pan 0.03
+[gpu0] 02_share_30_f0.75_draft3           182.6s  compute x1.94  static 0.75 pan 0.03
+[gpu0] 02_share_30_f0.9_draft3            127.6s  compute x2.50  static 0.90 pan 0.03
+[gpu0] 02_share_30_f0.75_warm             231.5s  compute x1.59  static 0.75 pan 0.00
+[gpu0] 02_share_15_f0.75_draft3           110.1s  compute x3.24  static 0.75 pan 0.03
+[gpu0] 02_abl_noRenoise_30_f0.75_draft3   182.1s  compute x1.94  static 0.75 pan 0.03
+[gpu0] 02_abl_noBias_30_f0.75_draft3      142.1s  compute x1.94  static 0.75 pan 0.03
+[gpu0] 02_abl_noGate_30_f0.75_draft3      182.4s  compute x1.94  static 0.75 pan 0.00
+[gpu0] 04_full_30                         381.5s  compute x1.00  static 0.00 pan 0.00
+[gpu0] 04_steps_20                        254.2s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 04_steps_15                        190.7s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 04_steps_10                        127.0s  compute x3.00  static 0.00 pan 0.00
+[gpu0] 04_unipc_20                        254.1s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 04_unipc_15                        190.6s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 04_share_30_f0.5_draft3            298.8s  compute x1.41  static 0.50 pan 0.01
+[gpu0] 04_share_30_f0.75_draft3           182.9s  compute x1.94  static 0.75 pan 0.01
+[gpu0] 04_share_30_f0.9_draft3            128.2s  compute x2.50  static 0.90 pan 0.01
+[gpu0] 04_share_30_f0.75_warm             231.9s  compute x1.59  static 0.75 pan 0.05
+[gpu0] 04_share_15_f0.75_draft3           110.4s  compute x3.24  static 0.75 pan 0.01
+[gpu0] 04_abl_noRenoise_30_f0.75_draft3   182.0s  compute x1.94  static 0.75 pan 0.01
+[gpu0] 04_abl_noBias_30_f0.75_draft3      142.2s  compute x1.94  static 0.75 pan 0.01
+[gpu0] 04_abl_noGate_30_f0.75_draft3      182.8s  compute x1.94  static 0.75 pan 0.00
+[gpu0] 06_full_30                         381.5s  compute x1.00  static 0.00 pan 0.00
+[gpu0] 06_steps_20                        254.8s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 06_steps_15                        190.8s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 06_steps_10                        127.3s  compute x3.00  static 0.00 pan 0.00
+[gpu0] 06_unipc_20                        254.7s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 06_unipc_15                        191.0s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 06_share_30_f0.5_draft3            299.3s  compute x1.41  static 0.50 pan 0.00
+[gpu0] 06_share_30_f0.75_draft3           183.2s  compute x1.94  static 0.75 pan 0.00
+[gpu0] 06_share_30_f0.9_draft3            128.0s  compute x2.50  static 0.90 pan 0.00
+[gpu0] 06_share_30_f0.75_warm             232.0s  compute x1.59  static 0.75 pan 0.01
+[gpu0] 06_share_15_f0.75_draft3           110.3s  compute x3.24  static 0.75 pan 0.00
+[gpu0] 06_abl_noRenoise_30_f0.75_draft3   182.3s  compute x1.94  static 0.75 pan 0.00
+[gpu0] 06_abl_noBias_30_f0.75_draft3      142.4s  compute x1.94  static 0.75 pan 0.00
+[gpu0] 06_abl_noGate_30_f0.75_draft3      182.9s  compute x1.94  static 0.75 pan 0.00
+[gpu0] 08_full_30                         379.9s  compute x1.00  static 0.00 pan 0.00
+[gpu0] 08_steps_20                        253.3s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 08_steps_15                        189.8s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 08_steps_10                        126.8s  compute x3.00  static 0.00 pan 0.00
+[gpu0] 08_unipc_20                        253.6s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 08_unipc_15                        190.4s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 08_share_30_f0.5_draft3            298.6s  compute x1.41  static 0.50 pan 0.02
+[gpu0] 08_share_30_f0.75_draft3           182.7s  compute x1.94  static 0.75 pan 0.02
+[gpu0] 08_share_30_f0.9_draft3            127.6s  compute x2.50  static 0.90 pan 0.02
+[gpu0] 08_share_30_f0.75_warm             231.5s  compute x1.59  static 0.75 pan 0.02
+[gpu0] 08_share_15_f0.75_draft3           110.3s  compute x3.24  static 0.75 pan 0.02
+[gpu0] 08_abl_noRenoise_30_f0.75_draft3   182.1s  compute x1.94  static 0.75 pan 0.02
+[gpu0] 08_abl_noBias_30_f0.75_draft3      141.5s  compute x1.94  static 0.75 pan 0.02
+[gpu0] 08_abl_noGate_30_f0.75_draft3      182.8s  compute x1.94  static 0.75 pan 0.00
+[gpu0] 10_full_30                         381.1s  compute x1.00  static 0.00 pan 0.00
+[gpu0] 10_steps_20                        253.9s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 10_steps_15                        190.3s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 10_steps_10                        126.9s  compute x3.00  static 0.00 pan 0.00
+[gpu0] 10_unipc_20                        254.4s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 10_unipc_15                        190.8s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 10_share_30_f0.5_draft3            298.6s  compute x1.41  static 0.50 pan 0.02
+[gpu0] 10_share_30_f0.75_draft3           182.7s  compute x1.94  static 0.75 pan 0.02
+[gpu0] 10_share_30_f0.9_draft3            127.9s  compute x2.50  static 0.90 pan 0.02
+[gpu0] 10_share_30_f0.75_warm             381.1s  compute x1.00  static 0.00 pan 0.54
+[gpu0] 10_share_15_f0.75_draft3           110.2s  compute x3.24  static 0.75 pan 0.02
+[gpu0] 10_abl_noRenoise_30_f0.75_draft3   182.2s  compute x1.94  static 0.75 pan 0.02
+[gpu0] 10_abl_noBias_30_f0.75_draft3      142.3s  compute x1.94  static 0.75 pan 0.02
+[gpu0] 10_abl_noGate_30_f0.75_draft3      182.9s  compute x1.94  static 0.75 pan 0.00
+[gpu0] 12_full_30                         382.4s  compute x1.00  static 0.00 pan 0.00
+[gpu0] 12_steps_20                        254.5s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 12_steps_15                        191.1s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 12_steps_10                        127.4s  compute x3.00  static 0.00 pan 0.00
+[gpu0] 12_unipc_20                        254.9s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 12_unipc_15                        191.0s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 12_share_30_f0.5_draft3            299.2s  compute x1.41  static 0.50 pan 0.00
+[gpu0] 12_share_30_f0.75_draft3           183.2s  compute x1.94  static 0.75 pan 0.00
+[gpu0] 12_share_30_f0.9_draft3            128.0s  compute x2.50  static 0.90 pan 0.00
+[gpu0] 12_share_30_f0.75_warm             232.2s  compute x1.59  static 0.75 pan 0.00
+[gpu0] 12_share_15_f0.75_draft3           110.6s  compute x3.24  static 0.75 pan 0.00
+[gpu0] 12_abl_noRenoise_30_f0.75_draft3   182.4s  compute x1.94  static 0.75 pan 0.00
+[gpu0] 12_abl_noBias_30_f0.75_draft3      142.3s  compute x1.94  static 0.75 pan 0.00
+[gpu0] 12_abl_noGate_30_f0.75_draft3      183.1s  compute x1.94  static 0.75 pan 0.00
+[gpu0] 14_full_30                         381.8s  compute x1.00  static 0.00 pan 0.00
+[gpu0] 14_steps_20                        254.7s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 14_steps_15                        190.8s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 14_steps_10                        127.3s  compute x3.00  static 0.00 pan 0.00
+[gpu0] 14_unipc_20                        254.6s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 14_unipc_15                        190.6s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 14_share_30_f0.5_draft3            299.5s  compute x1.41  static 0.50 pan 0.01
+[gpu0] 14_share_30_f0.75_draft3           183.1s  compute x1.94  static 0.75 pan 0.01
+[gpu0] 14_share_30_f0.9_draft3            128.2s  compute x2.50  static 0.90 pan 0.01
+[gpu0] 14_share_30_f0.75_warm             231.9s  compute x1.59  static 0.75 pan 0.00
+[gpu0] 14_share_15_f0.75_draft3           110.5s  compute x3.24  static 0.75 pan 0.01
+[gpu0] 14_abl_noRenoise_30_f0.75_draft3   182.2s  compute x1.94  static 0.75 pan 0.01
+[gpu0] 14_abl_noBias_30_f0.75_draft3      142.0s  compute x1.94  static 0.75 pan 0.01
+[gpu0] 14_abl_noGate_30_f0.75_draft3      183.4s  compute x1.94  static 0.75 pan 0.00
+[gpu0] time budget reached, stopping before prompt 16

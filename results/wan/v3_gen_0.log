@@ -1,0 +1,45 @@
+/usr/local/lib/python3.13/dist-packages/huggingface_hub/utils/_validators.py:206: UserWarning: The `local_dir_use_symlinks` argument is deprecated and ignored in `hf_hub_download`. Downloading to a local directory does not use symlinks anymore.
+  warnings.warn(
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files:  50%|█████     | 1/2 [00:29<00:29, 29.40s/it]Fetching 2 files: 100%|██████████| 2/2 [00:29<00:00, 14.70s/it]
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:02<00:02,  2.58s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:02<00:00,  1.24s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:02<00:00,  1.45s/it]
+[gpu0] 00_full_30                         369.3s  compute x1.00  static 0.00 pan 0.00
+[gpu0] 00_steps_20                        269.7s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 00_unipc_20                        268.9s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 00_steps_15                        202.2s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 00_unipc_15                        202.2s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 00_share_30_f0.75_draft3           189.9s  compute x1.94  static 0.75 pan 0.00
+[gpu0] 00_offset_30_f0.75_draft3          190.2s  compute x1.94  static 0.75 pan 0.00
+[gpu0] 00_offset_30_f0.9_draft3           131.5s  compute x2.50  static 0.90 pan 0.00
+[gpu0] 00_offset_15_f0.75_draft3          114.9s  compute x3.24  static 0.75 pan 0.00
+[gpu0] 00_offset_30_f0.75_warm            243.3s  compute x1.59  static 0.75 pan 0.00
+[gpu0] 02_full_30                         402.7s  compute x1.00  static 0.00 pan 0.00
+[gpu0] 02_steps_20                        268.2s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 02_unipc_20                        269.5s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 02_steps_15                        201.1s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 02_unipc_15                        201.9s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 02_share_30_f0.75_draft3           189.0s  compute x1.94  static 0.75 pan 0.00
+[gpu0] 02_offset_30_f0.75_draft3          189.3s  compute x1.94  static 0.75 pan 0.00
+[gpu0] 02_offset_30_f0.9_draft3           131.5s  compute x2.50  static 0.90 pan 0.00
+[gpu0] 02_offset_15_f0.75_draft3          114.6s  compute x3.24  static 0.75 pan 0.00
+[gpu0] 02_offset_30_f0.75_warm            242.3s  compute x1.59  static 0.75 pan 0.00
+[gpu0] 04_full_30                         404.5s  compute x1.00  static 0.00 pan 0.00
+[gpu0] 04_steps_20                        270.7s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 04_unipc_20                        270.7s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 04_steps_15                        201.9s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 04_unipc_15                        202.5s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 04_share_30_f0.75_draft3           189.5s  compute x1.94  static 0.75 pan 0.00
+[gpu0] 04_offset_30_f0.75_draft3          189.4s  compute x1.94  static 0.75 pan 0.00
+[gpu0] 04_offset_30_f0.9_draft3           131.5s  compute x2.50  static 0.90 pan 0.00
+[gpu0] 04_offset_15_f0.75_draft3          114.8s  compute x3.24  static 0.75 pan 0.00
+[gpu0] 04_offset_30_f0.75_warm            243.6s  compute x1.59  static 0.75 pan 0.00
+[gpu0] 06_full_30                         405.6s  compute x1.00  static 0.00 pan 0.00
+[gpu0] 06_steps_20                        269.8s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 06_unipc_20                        270.8s  compute x1.50  static 0.00 pan 0.00
+[gpu0] 06_steps_15                        202.6s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 06_unipc_15                        202.7s  compute x2.00  static 0.00 pan 0.00
+[gpu0] 06_share_30_f0.75_draft3           189.6s  compute x1.94  static 0.75 pan 0.00
+[gpu0] 06_offset_30_f0.75_draft3          189.6s  compute x1.94  static 0.75 pan 0.00
+[gpu0] 06_offset_30_f0.9_draft3           131.8s  compute x2.50  static 0.90 pan 0.00
+[gpu0] 06_offset_15_f0.75_draft3          114.8s  compute x3.24  static 0.75 pan 0.00
+[gpu0] 06_offset_30_f0.75_warm            243.5s  compute x1.59  static 0.75 pan 0.00

@@ -1,0 +1,242 @@
+[
+ {
+  "prompt": "00",
+  "variant": "copy_frame1",
+  "psnr": 24.951519012451172,
+  "flicker": 1.4652987718582153,
+  "ref_flicker": 0.052809614688158035,
+  "motion": 1.6387669969900902,
+  "latent_rel_change": 0.11365100741386414,
+  "lpips": 0.142238362506032
+ },
+ {
+  "prompt": "00",
+  "variant": "temporal_mean",
+  "psnr": 31.624942779541016,
+  "flicker": 1.2994846105575562,
+  "ref_flicker": 0.052809614688158035,
+  "motion": 1.5197360079197624,
+  "latent_rel_change": 0.11365100741386414,
+  "lpips": 0.03252377063035965
+ },
+ {
+  "prompt": "00",
+  "variant": "untouched",
+  "psnr": 71.3541488647461,
+  "flicker": 0.05321640893816948,
+  "ref_flicker": 0.052809614688158035,
+  "motion": 0.999998960031199,
+  "latent_rel_change": 0.11365100741386414,
+  "lpips": 4.0264077142637685e-06
+ },
+ {
+  "prompt": "01",
+  "variant": "copy_frame1",
+  "psnr": 31.303186416625977,
+  "flicker": 0.7611079216003418,
+  "ref_flicker": 0.031120143830776215,
+  "motion": 1.832006438050548,
+  "latent_rel_change": 0.1277633160352707,
+  "lpips": 0.08437042459845542
+ },
+ {
+  "prompt": "01",
+  "variant": "temporal_mean",
+  "psnr": 39.919822692871094,
+  "flicker": 0.19349753856658936,
+  "ref_flicker": 0.031120143830776215,
+  "motion": 1.1839515884083234,
+  "latent_rel_change": 0.1277633160352707,
+  "lpips": 0.008535253023728729
+ },
+ {
+  "prompt": "01",
+  "variant": "untouched",
+  "psnr": 75.15094757080078,
+  "flicker": 0.03129025921225548,
+  "ref_flicker": 0.031120143830776215,
+  "motion": 0.9999892134628484,
+  "latent_rel_change": 0.1277633160352707,
+  "lpips": 2.013994367189298e-06
+ },
+ {
+  "prompt": "02",
+  "variant": "copy_frame1",
+  "psnr": 27.58709716796875,
+  "flicker": 0.35946688055992126,
+  "ref_flicker": 0.0,
+  "motion": 3.426754550807647,
+  "latent_rel_change": 0.11051423102617264,
+  "lpips": 0.054637298360466956
+ },
+ {
+  "prompt": "02",
+  "variant": "temporal_mean",
+  "psnr": 36.42880630493164,
+  "flicker": 0.04018322750926018,
+  "ref_flicker": 0.0,
+  "motion": 2.7893458000005955,
+  "latent_rel_change": 0.11051423102617264,
+  "lpips": 0.007761928252875805
+ },
+ {
+  "prompt": "02",
+  "variant": "untouched",
+  "psnr": 73.05777740478516,
+  "flicker": 4.031473145005293e-05,
+  "ref_flicker": 0.0,
+  "motion": 0.9999891209822356,
+  "latent_rel_change": 0.11051423102617264,
+  "lpips": 5.786563997389749e-06
+ },
+ {
+  "prompt": "03",
+  "variant": "copy_frame1",
+  "psnr": 20.60483169555664,
+  "flicker": 2.01520037651062,
+  "ref_flicker": 0.3967801332473755,
+  "motion": 1.345326265232524,
+  "latent_rel_change": 0.2386886328458786,
+  "lpips": 0.22012860625982283
+ },
+ {
+  "prompt": "03",
+  "variant": "temporal_mean",
+  "psnr": 24.955047607421875,
+  "flicker": 0.7082585096359253,
+  "ref_flicker": 0.3967801332473755,
+  "motion": 0.9603672364834419,
+  "latent_rel_change": 0.2386886328458786,
+  "lpips": 0.14048078358173371
+ },
+ {
+  "prompt": "03",
+  "variant": "untouched",
+  "psnr": 71.54108428955078,
+  "flicker": 0.3971211612224579,
+  "ref_flicker": 0.3967801332473755,
+  "motion": 0.999998257858387,
+  "latent_rel_change": 0.2386886328458786,
+  "lpips": 3.833650134765776e-06
+ },
+ {
+  "prompt": "04",
+  "variant": "copy_frame1",
+  "psnr": 25.819433212280273,
+  "flicker": 1.0002120733261108,
+  "ref_flicker": 0.07578820735216141,
+  "motion": 1.2981020767336513,
+  "latent_rel_change": 0.1489790678024292,
+  "lpips": 0.06261533871293068
+ },
+ {
+  "prompt": "04",
+  "variant": "temporal_mean",
+  "psnr": 29.91844940185547,
+  "flicker": 0.5066090822219849,
+  "ref_flicker": 0.07578820735216141,
+  "motion": 1.2017860244832563,
+  "latent_rel_change": 0.1489790678024292,
+  "lpips": 0.02756493017077446
+ },
+ {
+  "prompt": "04",
+  "variant": "untouched",
+  "psnr": 70.90269470214844,
+  "flicker": 0.07599455118179321,
+  "ref_flicker": 0.07578820735216141,
+  "motion": 0.9999913486190082,
+  "latent_rel_change": 0.1489790678024292,
+  "lpips": 2.8456851850933164e-06
+ },
+ {
+  "prompt": "05",
+  "variant": "copy_frame1",
+  "psnr": 19.557897567749023,
+  "flicker": 0.8833082914352417,
+  "ref_flicker": 0.3341847360134125,
+  "motion": 1.2841830796511773,
+  "latent_rel_change": 0.21712501347064972,
+  "lpips": 0.23964464664459229
+ },
+ {
+  "prompt": "05",
+  "variant": "temporal_mean",
+  "psnr": 23.43939781188965,
+  "flicker": 0.6824654340744019,
+  "ref_flicker": 0.3341847360134125,
+  "motion": 1.0613216994721473,
+  "latent_rel_change": 0.21712501347064972,
+  "lpips": 0.3188329994678497
+ },
+ {
+  "prompt": "05",
+  "variant": "untouched",
+  "psnr": 65.57781982421875,
+  "flicker": 0.33432912826538086,
+  "ref_flicker": 0.3341847360134125,
+  "motion": 1.0,
+  "latent_rel_change": 0.21712501347064972,
+  "lpips": 1.1864821863127872e-05
+ },
+ {
+  "prompt": "06",
+  "variant": "copy_frame1",
+  "psnr": 21.769916534423828,
+  "flicker": 0.9972480535507202,
+  "ref_flicker": 0.36861172318458557,
+  "motion": 1.032467080473955,
+  "latent_rel_change": 0.28090208768844604,
+  "lpips": 0.12652386762201787
+ },
+ {
+  "prompt": "06",
+  "variant": "temporal_mean",
+  "psnr": 26.780982971191406,
+  "flicker": 0.7791789174079895,
+  "ref_flicker": 0.36861172318458557,
+  "motion": 1.103821355175293,
+  "latent_rel_change": 0.28090208768844604,
+  "lpips": 0.06055711731314659
+ },
+ {
+  "prompt": "06",
+  "variant": "untouched",
+  "psnr": 67.14617156982422,
+  "flicker": 0.3688144087791443,
+  "ref_flicker": 0.36861172318458557,
+  "motion": 1.0000084829913118,
+  "latent_rel_change": 0.28090208768844604,
+  "lpips": 3.684855391838937e-06
+ },
+ {
+  "prompt": "07",
+  "variant": "copy_frame1",
+  "psnr": 25.358945846557617,
+  "flicker": 1.0137050151824951,
+  "ref_flicker": 0.26530787348747253,
+  "motion": 1.0808215143916888,
+  "latent_rel_change": 0.23104654252529144,
+  "lpips": 0.10632854774594307
+ },
+ {
+  "prompt": "07",
+  "variant": "temporal_mean",
+  "psnr": 30.067554473876953,
+  "flicker": 0.526350736618042,
+  "ref_flicker": 0.26530787348747253,
+  "motion": 0.9266530405544485,
+  "latent_rel_change": 0.23104654252529144,
+  "lpips": 0.10237254649400711
+ },
+ {
+  "prompt": "07",
+  "variant": "untouched",
+  "psnr": 69.22917175292969,
+  "flicker": 0.2654639184474945,
+  "ref_flicker": 0.26530787348747253,
+  "motion": 1.000002054426012,
+  "latent_rel_change": 0.23104654252529144,
+  "lpips": 4.9907611355592966e-06
+ }
+]

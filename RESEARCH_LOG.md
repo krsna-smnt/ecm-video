@@ -498,3 +498,54 @@ so "static = identical tokens" held exactly.
 - (c) Fix by sharing in the right space: keep each frame's latent offset from the draft and share
   only the leader's update, i.e. x0_i = x0_leader + (d_i - d_leader), where d is the draft's clean
   latent.
+
+---
+## 14 Nov: Kaggle run 3 (VAE diagnostic + offset-preserving sharing). Final verdict on Wan 2.1
+
+Files: `results/wan/v3_diag.md`, `results/wan/v3_results.md` (8 prompts: 6 static, 2 moving).
+
+**VAE-only diagnostic (no transformer).** Take the full_30 reference latent, overwrite the 75%
+least-active positions in latent frames 2-8, and decode.
+
+| variant | PSNR | LPIPS | flicker | motion |
+|---|---|---|---|---|
+| copy frame 1 (what plain sharing produces) | 24.6 | 0.130 | 1.06 | 1.62 |
+| temporal mean | 30.4 | 0.087 | 0.59 | 1.34 |
+| untouched | 70.5 | 0.000 | 0.19 | 1.00 |
+
+- Hypothesis confirmed in direction. In Wan's latents, the stillest 75% of positions still change
+  by 18% (RMS, relative) between consecutive latent frames. Making them identical by itself makes
+  the decoder flicker 5.6x more and adds 60% motion.
+- But it explains only part of the failure. Sharing runs reach LPIPS 0.72-0.76 and flicker 5.6-6.4,
+  far worse than the 0.13 / 1.06 that latent equality alone causes. **Most of the damage happens
+  during sampling, not decoding.**
+
+**Offset-preserving sharing barely helps.**
+
+| method | wall x | LPIPS | flicker | CLIP |
+|---|---|---|---|---|
+| share_30_f0.75_draft3 | 2.07 | 0.759 | 6.40 | 30.2 |
+| offset_30_f0.75_draft3 | 2.07 | 0.715 | 5.61 | 30.4 |
+| offset_30_f0.75_warm | 1.63 | 0.330 | 1.03 | 30.5 |
+| unipc_15 | 1.97 | 0.295 | 0.71 | 31.9 |
+| unipc_20 | 1.48 | 0.182 | 0.39 | 31.0 |
+| steps_20 | 1.48 | 0.249 | 0.52 | 30.7 |
+
+At every matched speed, Wan's own UniPC scheduler with fewer steps beats every sharing variant
+on LPIPS, flicker, motion fidelity and CLIP, on both static and moving prompts. Even CLIP (text
+alignment, reference-free) is higher for unipc_15 (31.9) than for any sharing variant.
+
+**Verdict.** Re-noised averaged frame sharing gives a real matched-compute win on the pixel-space
+toy DiTs (T=8 and T=16, two seed sets each). It does **not** transfer to Wan 2.1 1.3B: across 3 runs
+and 8 variants, nothing beats UniPC with fewer steps.
+
+What the evidence says about why:
+1. Latent-space "static" is not static for a causal 3D VAE (measured: 18% frame-to-frame change).
+2. Sharing early in sampling, with a map from a 3-step draft, derails the trajectory, and keeping
+   per-frame offsets does not rescue it.
+3. Late sharing is benign but too limited (1.6x) to beat a good ODE solver.
+
+**Publishable as:** a careful negative-transfer study, a workshop or short-paper tier finding. The
+toy-scale positive result, the mechanism ("share content, not noise"), and the diagnosed failure
+on a real latent video DiT, with the VAE measurement, together make a coherent story. Not a
+"10x faster video" claim.

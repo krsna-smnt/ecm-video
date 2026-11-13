@@ -462,3 +462,39 @@ seeds).
    - The C2ST standard error is about 0.03 (240 held-out clips), so these swings are partly
      noise. **Claim only averaging as universally necessary**; report the others as helping at
      T=8 and mixed at T=16.
+
+---
+## 13 Nov: Wan 2.1 results (Kaggle Version 2). The toy result does NOT transfer as-is.
+
+Full table: `results/wan/v2_results_summary.md` (16 of 24 prompts finished).
+
+1. **Fewer steps is a strong baseline on Wan.** UniPC-20 at 1.5x gives LPIPS 0.225 and keeps motion
+   at 1.05. UniPC-15 at 2x gives LPIPS 0.31, CLIP 30.6 (full: 30.0), flicker 1.0.
+2. **Draft-map sharing (the toy protocol) fails badly.** PSNR ~12, LPIPS 0.66-0.78, flicker 8-10x
+   the reference, and 2.6-4.3x the reference's frame-to-frame change. CLIP stays near full
+   (28.6-29.0), so the content is right but the video churns over time.
+3. **Late sharing (map at sigma 0.85, the last 20 steps shared)** is much milder but still no
+   better than fewer steps at matched speed (1.4x: LPIPS ~0.36 ungated vs steps_20's 0.25), and
+   it flickers more.
+4. **Ablations.** No re-noise breaks content (CLIP 20). No log(m) bias makes the flicker worst
+   (10.5) but is 28% faster in wall-clock, which measures the cost of the 8-channel bias fold.
+5. **The pan gate is unreliable.** It never fired on drafts (0 of 5 moving prompts gated) and
+   false-alarmed on 3 of 11 static prompts from the mid-trajectory estimate.
+6. **Code check (CPU):** shared latent tokens end exactly identical across latent frames 1-8, as
+   designed (max diff 0.0). So the extra pixel-space motion cannot come from the latents of the
+   shared region changing; it must come from how Wan's VAE decodes them.
+
+**Leading hypothesis:** Wan's causal 3D VAE does not represent a static scene with identical
+latent frames. Real static content has a per-latent-frame structure (each latent frame packs 4
+pixel frames with a causal temporal cache). Forcing exact equality produces latents off the data
+manifold, which the decoder turns into temporal churn. In the toy model, pixels were the latents,
+so "static = identical tokens" held exactly.
+
+**Next (needs one cheap Kaggle run, VAE-only diagnostic plus a fix):**
+- (a) Encode real static and near-static clips with Wan-VAE and measure latent frame-to-frame
+  differences.
+- (b) Decode a reference latent with its static positions forced equal across frames 1-8 and
+  measure the flicker. That alone would confirm the hypothesis without the transformer.
+- (c) Fix by sharing in the right space: keep each frame's latent offset from the draft and share
+  only the leader's update, i.e. x0_i = x0_leader + (d_i - d_leader), where d is the draft's clean
+  latent.

@@ -186,10 +186,11 @@ def sample(model, noise, enc_c, enc_u, n_steps=30, shift=3.0, gscale=5.0, share=
     work, info = 0, {}
     gen = torch.Generator(device=x.device).manual_seed(seed)
     keep = inv = mult = kb = None
+    off = 0.0
     warm = None
 
     def build(x0_est):
-        nonlocal keep, inv, mult, kb, info
+        nonlocal keep, inv, mult, kb, info, off
         src, info = static_map(x0_est, grid, share.get("thr", 0.0), share.get("first_frame", 1), share.get("pan_gate"),
                                share.get("frac"))
         kp = torch.unique(src).to(x.device)
@@ -199,6 +200,12 @@ def sample(model, noise, enc_c, enc_u, n_steps=30, shift=3.0, gscale=5.0, share=
             inv = torch.searchsorted(keep, src.to(x.device))
             mult = torch.bincount(inv, minlength=len(keep)).float()
             kb = torch.log(mult)[None] if share.get("prop", True) else None
+            if share.get("offset"):
+                # Offset-preserving sharing: each member keeps its own latent offset from the leader,
+                # taken from the map estimate (x0_i = x0_leader + (e_i - e_leader)). Shared content is
+                # then "static" in the sense the VAE expects, not forced to identical latents.
+                e = x0_est.to(x.device).float()
+                off = e - e[:, src.to(x.device)]
 
     if share is not None and share.get("draft"):
         # toy-study protocol: a cheap separate full-compute draft from the SAME noise gives a complete
@@ -221,15 +228,16 @@ def sample(model, noise, enc_c, enc_u, n_steps=30, shift=3.0, gscale=5.0, share=
                 build(x0)
                 info["warm_steps"] = warm
         else:
+            xa = x - (1 - s) * off                          # align members to their leader (no-op without offset)
             if share.get("average", True):
-                z = torch.zeros(x.shape[0], len(keep), x.shape[-1], device=x.device).index_add_(1, inv, x) / mult[None, :, None]
+                z = torch.zeros(x.shape[0], len(keep), x.shape[-1], device=x.device).index_add_(1, inv, xa) / mult[None, :, None]
                 if share.get("renoise", True):
                     z = z + s * torch.sqrt(1 - 1 / mult)[None, :, None] * torch.randn(z.shape, generator=gen, device=x.device)
             else:
-                z = x[:, keep]
+                z = xa[:, keep]
             v = _guided(model, shape, z.to(model.dtype), keep, s, enc_c, enc_u, gscale, kb)
             work += len(keep)
-            x0 = (z - s * v)[:, inv]                       # leader's clean estimate for every member
+            x0 = (z - s * v)[:, inv] + off                 # leader's clean estimate (+ member offset)
             eps = (x - (1 - s) * x0) / s                    # each token keeps its own noise estimate
             x = (1 - s2) * x0 + s2 * eps
         if callback is not None:

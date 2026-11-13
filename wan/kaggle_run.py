@@ -60,6 +60,21 @@ for j in range(8):
     PROMPTS += [("static", PROMPTS_STATIC[2 * j]), ("static", PROMPTS_STATIC[2 * j + 1]), ("moving", PROMPTS_MOVING[j])]
 
 
+def methods_v3(steps):
+    """Run 3: offset-preserving sharing (fix for the VAE latent-equality churn seen in run 2)."""
+    d = dict(first_frame=1, pan_gate=None, draft=3)
+    return {f"full_{steps}": (steps, None),
+            f"steps_{steps * 2 // 3}": (steps * 2 // 3, None),
+            f"unipc_{steps * 2 // 3}": (steps * 2 // 3, "unipc"),
+            f"steps_{steps // 2}": (steps // 2, None),
+            f"unipc_{steps // 2}": (steps // 2, "unipc"),
+            f"share_{steps}_f0.75_draft3": (steps, dict(d, frac=0.75)),                      # run-2 control
+            f"offset_{steps}_f0.75_draft3": (steps, dict(d, frac=0.75, offset=True)),
+            f"offset_{steps}_f0.9_draft3": (steps, dict(d, frac=0.9, offset=True)),
+            f"offset_{steps // 2}_f0.75_draft3": (steps // 2, dict(d, frac=0.75, offset=True)),
+            f"offset_{steps}_f0.75_warm": (steps, dict(first_frame=1, pan_gate=None, warm_sigma=0.85, frac=0.75, offset=True))}
+
+
 def methods(steps):
     """name -> (n_steps, share-config | None | "unipc").
     Sharing picks the `frac` least-active token positions (quantile, so the sweep spans the range).
@@ -159,7 +174,7 @@ def stage_gen(args):
     embs = torch.load(os.path.join(args.out, "embeds.pt"))
     neg = embs[-1].to(device, dtype)
     k, n = map(int, args.shard.split("/"))
-    M = methods(args.steps)
+    M = methods_v3(args.steps) if args.set == "v3" else methods(args.steps)
     if args.only:
         M = {a: b for a, b in M.items() if a in args.only.split(",")}
     lat_shape = (1, 16, (args.frames - 1) // 4 + 1, args.height // 8, args.width // 8)
@@ -313,6 +328,63 @@ def stage_report(args):
     print("\n".join(lines))
 
 
+def stage_diag(args):
+    """VAE-only test of the run-2 hypothesis: does forcing static latent positions to be identical
+    across latent frames (what plain sharing does) by itself make Wan's decoder churn?"""
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    vae = load_vae(args, device)
+    lp = None
+    try:
+        import lpips
+        lp = lpips.LPIPS(net="alex", verbose=False)
+    except Exception as e:  # noqa
+        print("LPIPS unavailable:", e)
+    vd = os.path.join(args.out, "vids")
+    lines = ["# VAE diagnostic: forcing latent equality on static positions (no transformer involved)", "",
+             "Each row decodes the full_30 reference latent after modifying only the 75% least-active "
+             "positions in latent frames 2..8. Metrics vs the unmodified reference decode.", "",
+             "| prompt | variant | PSNR | LPIPS | flicker (ref mask) | motion | latent rel. change, static pos. |",
+             "|---|---|---|---|---|---|---|"]
+    rows = []
+    for f in sorted(os.listdir(vd)):
+        if not f.endswith(f"_full_{args.steps}.lat.pt"):
+            continue
+        lat = torch.load(os.path.join(vd, f)).float().to(device)            # 1,16,F,H,W
+        ref = np.load(os.path.join(vd, f.replace(".lat.pt", ".npy")))
+        p = (1, 2, 2)
+        Fl, Hl, Wl = lat.shape[2], lat.shape[3] // 2, lat.shape[4] // 2
+        tok = E.patchify(lat, p)
+        src, info = E.static_map(tok, (Fl, Hl, Wl), 0.0, 1, None, 0.75)
+        T = tok[0].reshape(Fl, Hl * Wl, -1)
+        stat = (src.reshape(Fl, Hl * Wl)[2] != torch.arange(Hl * Wl) + 2 * Hl * Wl).to(device)
+        rel = float(((T[2:, stat] - T[1:-1, stat]).pow(2).mean().sqrt() / T[1:, stat].pow(2).mean().sqrt()))
+        variants = {"copy_frame1": T.clone(), "temporal_mean": T.clone(), "untouched": T.clone()}
+        variants["copy_frame1"][2:, stat] = T[1:2, stat]
+        variants["temporal_mean"][1:, stat] = T[1:, stat].mean(0, keepdim=True)
+        for name, Tv in variants.items():
+            v = decode(vae, E.unpatchify(Tv.reshape(1, Fl * Hl * Wl, -1), p, lat.shape), args)
+            rec = dict(prompt=f[:2], variant=name, psnr=psnr(v, ref), flicker=flicker(v, ref), ref_flicker=flicker(ref, ref),
+                       motion=motion(v) / max(motion(ref), 1e-6), latent_rel_change=rel)
+            if lp is not None:
+                with torch.no_grad():
+                    tv = torch.from_numpy(v).permute(0, 3, 1, 2).float() / 127.5 - 1
+                    tr = torch.from_numpy(ref).permute(0, 3, 1, 2).float() / 127.5 - 1
+                    rec["lpips"] = float(np.mean([lp(tv[j:j + 8], tr[j:j + 8]).mean().item() for j in range(0, len(tv), 8)]))
+            rows.append(rec)
+            lines.append(f"| {rec['prompt']} | {name} | {rec['psnr']:.2f} | {rec.get('lpips', float('nan')):.3f} | "
+                         f"{rec['flicker']:.2f} (ref {rec['ref_flicker']:.2f}) | {rec['motion']:.2f} | {rel:.3f} |")
+            print(lines[-1], flush=True)
+    for name in ["copy_frame1", "temporal_mean", "untouched"]:
+        rs = [r for r in rows if r["variant"] == name]
+        if rs:
+            lines.append(f"| **mean** | {name} | {np.mean([r['psnr'] for r in rs]):.2f} | "
+                         f"{np.mean([r.get('lpips', np.nan) for r in rs]):.3f} | {np.mean([r['flicker'] for r in rs]):.2f} | "
+                         f"{np.mean([r['motion'] for r in rs]):.2f} | {np.mean([r['latent_rel_change'] for r in rs]):.3f} |")
+    open(os.path.join(args.out, "diag.md"), "w").write("\n".join(lines))
+    json.dump(rows, open(os.path.join(args.out, "diag.json"), "w"), indent=1)
+    print("\n".join(lines[-3:]))
+
+
 def stage_mp4(args):
     import imageio
     os.makedirs(os.path.join(args.out, "mp4"), exist_ok=True)
@@ -323,7 +395,8 @@ def stage_mp4(args):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("stage", choices=["encode", "gen", "report", "mp4"])
+    ap.add_argument("stage", choices=["encode", "gen", "report", "mp4", "diag"])
+    ap.add_argument("--set", default="v2", choices=["v2", "v3"])
     ap.add_argument("--out", default="/kaggle/working/ecm_wan")
     ap.add_argument("--gpu", type=int, default=0)
     ap.add_argument("--shard", default="0/1")
@@ -341,4 +414,4 @@ if __name__ == "__main__":
     ap.add_argument("--dry", action="store_true")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
-    {"encode": stage_encode, "gen": stage_gen, "report": stage_report, "mp4": stage_mp4}[a.stage](a)
+    {"encode": stage_encode, "gen": stage_gen, "report": stage_report, "mp4": stage_mp4, "diag": stage_diag}[a.stage](a)

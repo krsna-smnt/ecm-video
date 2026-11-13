@@ -80,3 +80,13 @@ e, ie = E.sample(m, noise, enc, torch.zeros_like(enc), n_steps=10, share=dict(fr
 print("draft3 frac0.75:", {k: v for k, v in ie.items() if k != "act"})
 assert ie["token_forwards"] < ie["full_token_forwards"] and ie["draft_steps"] == 3 and torch.isfinite(e).all()
 print("ALL CHECKS PASSED 3")
+
+# 9. offset-preserving sharing: members end at leader + (map offset), not identical
+g, ig = E.sample(m, noise, enc, torch.zeros_like(enc), n_steps=10, share=dict(frac=0.75, draft=3, first_frame=1, offset=True))
+dl, _ = E.sample(m, noise, enc, torch.zeros_like(enc), n_steps=3)
+src9, _ = E.static_map(E.patchify(dl, (1, 2, 2)), (5, 4, 6), 0, 1, None, 0.75)
+tg, td = E.patchify(g, (1, 2, 2))[0], E.patchify(dl, (1, 2, 2))[0]
+sh = src9 != torch.arange(len(src9))
+err = ((tg[sh] - tg[src9[sh]]) - (td[sh] - td[src9[sh]])).abs().max().item()
+print("offset sharing: member-leader diff equals draft offsets, max err", err); assert err < 1e-4 and torch.isfinite(g).all()
+print("ALL CHECKS PASSED 4")

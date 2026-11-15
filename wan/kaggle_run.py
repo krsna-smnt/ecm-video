@@ -389,6 +389,8 @@ def stage_mp4(args):
     import imageio
     os.makedirs(os.path.join(args.out, "mp4"), exist_ok=True)
     for f in sorted(os.listdir(os.path.join(args.out, "vids"))):
+        if not f.endswith(".npy"):          # skip saved latents (.lat.pt); np.load would open them as npz
+            continue
         v = np.load(os.path.join(args.out, "vids", f))
         imageio.mimwrite(os.path.join(args.out, "mp4", f[:-4] + ".mp4"), list(v), fps=16, quality=8)
 
